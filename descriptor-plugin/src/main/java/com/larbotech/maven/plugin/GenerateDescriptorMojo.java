@@ -761,12 +761,14 @@ public class GenerateDescriptorMojo extends AbstractMojo {
         html.append("    .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }\n");
 
         // Header
-        html.append("    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; text-align: center; position: relative; overflow: hidden; }\n");
+        html.append("    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; display: flex; justify-content: space-between; align-items: center; position: relative; overflow: hidden; }\n");
         html.append("    .header::before { content: ''; position: absolute; top: -50%; right: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: pulse 15s ease-in-out infinite; }\n");
         html.append("    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }\n");
         html.append("    .header h1 { font-size: 2.5em; margin-bottom: 10px; position: relative; z-index: 1; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }\n");
         html.append("    .header .subtitle { font-size: 1.1em; opacity: 0.9; position: relative; z-index: 1; }\n");
         html.append("    .header .timestamp { margin-top: 15px; font-size: 0.9em; opacity: 0.8; position: relative; z-index: 1; }\n");
+        html.append("    .theme-toggle { background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.3); color: white; padding: 12px 16px; border-radius: 50%; cursor: pointer; font-size: 1.5em; transition: all 0.3s; position: relative; z-index: 1; }\n");
+        html.append("    .theme-toggle:hover { background: rgba(255,255,255,0.3); transform: rotate(20deg) scale(1.1); }\n");
 
         // Stats Cards
         html.append("    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; padding: 30px; background: #f8f9fa; }\n");
@@ -807,6 +809,7 @@ public class GenerateDescriptorMojo extends AbstractMojo {
         html.append("    .badge-war { background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%); color: white; box-shadow: 0 2px 8px rgba(255,152,0,0.3); }\n");
         html.append("    .badge-git { background: linear-gradient(135deg, #F05032 0%, #d63e1f 100%); color: white; box-shadow: 0 2px 8px rgba(240,80,50,0.3); }\n");
         html.append("    .badge-ci { background: linear-gradient(135deg, #24292e 0%, #1a1d21 100%); color: white; box-shadow: 0 2px 8px rgba(36,41,46,0.3); }\n");
+        html.append("    .badge-deployable { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; box-shadow: 0 2px 8px rgba(16,185,129,0.3); }\n");
 
         // Tables
         html.append("    .table-container { overflow-x: auto; margin: 20px 0; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }\n");
@@ -830,6 +833,29 @@ public class GenerateDescriptorMojo extends AbstractMojo {
         html.append("    .empty-state { text-align: center; padding: 60px 20px; color: #999; }\n");
         html.append("    .empty-state-icon { font-size: 4em; margin-bottom: 20px; opacity: 0.3; }\n");
 
+        // Dark Mode Styles
+        html.append("    body.dark-mode { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); }\n");
+        html.append("    body.dark-mode .container { background: #0f3460; }\n");
+        html.append("    body.dark-mode .header { background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); }\n");
+        html.append("    body.dark-mode .stats { background: #16213e; }\n");
+        html.append("    body.dark-mode .stat-card { background: #1a1a2e; color: #e0e0e0; }\n");
+        html.append("    body.dark-mode .stat-card .label { color: #a0a0a0; }\n");
+        html.append("    body.dark-mode .tabs { background: #16213e; border-bottom-color: #2a2a3e; }\n");
+        html.append("    body.dark-mode .tab { color: #a0a0a0; }\n");
+        html.append("    body.dark-mode .tab:hover { color: #667eea; }\n");
+        html.append("    body.dark-mode .tab.active { color: #667eea; }\n");
+        html.append("    body.dark-mode .tab-content { background: #0f3460; color: #e0e0e0; }\n");
+        html.append("    body.dark-mode .module-card { background: #1a1a2e; border-color: #2a2a3e; }\n");
+        html.append("    body.dark-mode .module-title { color: #e0e0e0; }\n");
+        html.append("    body.dark-mode .info-label { color: #a0a0a0; }\n");
+        html.append("    body.dark-mode .info-value { color: #e0e0e0; }\n");
+        html.append("    body.dark-mode .section-header { color: #e0e0e0; border-bottom-color: #2a2a3e; }\n");
+        html.append("    body.dark-mode table { background: #1a1a2e; }\n");
+        html.append("    body.dark-mode td { color: #e0e0e0; border-bottom-color: #2a2a3e; }\n");
+        html.append("    body.dark-mode tr:hover { background: #16213e; }\n");
+        html.append("    body.dark-mode code { background: #16213e; color: #a0e9ff; }\n");
+        html.append("    body.dark-mode .empty-state { color: #666; }\n");
+
         html.append("  </style>\n");
         html.append("</head>\n");
         html.append("<body>\n");
@@ -837,9 +863,14 @@ public class GenerateDescriptorMojo extends AbstractMojo {
 
         // Header
         html.append("    <div class=\"header\">\n");
-        html.append("      <h1>").append(escapeHtml(descriptor.projectName())).append("</h1>\n");
-        html.append("      <div class=\"subtitle\">Deployment Descriptor</div>\n");
-        html.append("      <div class=\"timestamp\">📅 Generated: ").append(descriptor.generatedAt()).append("</div>\n");
+        html.append("      <div>\n");
+        html.append("        <h1>").append(escapeHtml(descriptor.projectName())).append("</h1>\n");
+        html.append("        <div class=\"subtitle\">Deployment Descriptor</div>\n");
+        html.append("        <div class=\"timestamp\">📅 Generated: ").append(descriptor.generatedAt()).append("</div>\n");
+        html.append("      </div>\n");
+        html.append("      <button class=\"theme-toggle\" onclick=\"toggleTheme()\" title=\"Toggle Dark/Light Mode\">\n");
+        html.append("        <span class=\"theme-icon\">🌙</span>\n");
+        html.append("      </button>\n");
         html.append("    </div>\n");
 
         // Stats Cards
@@ -1045,6 +1076,7 @@ public class GenerateDescriptorMojo extends AbstractMojo {
                 html.append("        <div class=\"module-header\">\n");
                 html.append("          <div class=\"module-title\">📦 ").append(escapeHtml(module.getArtifactId())).append("</div>\n");
                 html.append("          <div class=\"module-badges\">\n");
+                html.append("            <span class=\"badge badge-deployable\">✓ DEPLOYABLE</span>\n");
                 html.append("            <span class=\"badge badge-").append(module.getPackaging()).append("\">").append(module.getPackaging().toUpperCase()).append("</span>\n");
                 if (module.isSpringBootExecutable()) {
                     html.append("            <span class=\"badge badge-spring\">Spring Boot</span>\n");
@@ -1208,9 +1240,10 @@ public class GenerateDescriptorMojo extends AbstractMojo {
         }
         html.append("    </div>\n");
 
-        // JavaScript for tab navigation
+        // JavaScript for tab navigation and theme toggle
         html.append("  </div>\n");
         html.append("  <script>\n");
+        html.append("    // Tab navigation\n");
         html.append("    function showTab(tabName) {\n");
         html.append("      // Hide all tab contents\n");
         html.append("      const contents = document.querySelectorAll('.tab-content');\n");
@@ -1226,6 +1259,34 @@ public class GenerateDescriptorMojo extends AbstractMojo {
         html.append("      // Add active class to clicked tab\n");
         html.append("      event.target.classList.add('active');\n");
         html.append("    }\n");
+        html.append("    \n");
+        html.append("    // Theme toggle\n");
+        html.append("    function toggleTheme() {\n");
+        html.append("      const body = document.body;\n");
+        html.append("      const themeIcon = document.querySelector('.theme-icon');\n");
+        html.append("      \n");
+        html.append("      body.classList.toggle('dark-mode');\n");
+        html.append("      \n");
+        html.append("      // Update icon\n");
+        html.append("      if (body.classList.contains('dark-mode')) {\n");
+        html.append("        themeIcon.textContent = '☀️';\n");
+        html.append("        localStorage.setItem('theme', 'dark');\n");
+        html.append("      } else {\n");
+        html.append("        themeIcon.textContent = '🌙';\n");
+        html.append("        localStorage.setItem('theme', 'light');\n");
+        html.append("      }\n");
+        html.append("    }\n");
+        html.append("    \n");
+        html.append("    // Load saved theme on page load\n");
+        html.append("    document.addEventListener('DOMContentLoaded', function() {\n");
+        html.append("      const savedTheme = localStorage.getItem('theme');\n");
+        html.append("      const themeIcon = document.querySelector('.theme-icon');\n");
+        html.append("      \n");
+        html.append("      if (savedTheme === 'dark') {\n");
+        html.append("        document.body.classList.add('dark-mode');\n");
+        html.append("        themeIcon.textContent = '☀️';\n");
+        html.append("      }\n");
+        html.append("    });\n");
         html.append("  </script>\n");
         html.append("</body>\n");
         html.append("</html>\n");
