@@ -1,0 +1,108 @@
+projectGroupId: "com.larbotech"
+projectArtifactId: "github-actions-project"
+projectVersion: "1.0-SNAPSHOT"
+projectName: "github-actions-project"
+projectDescription: "Projet multi-modules avec API REST et Batch"
+generatedAt: "2025-11-09T18:36:04.92012"
+deployableModules:
+- groupId: "com.larbotech"
+  artifactId: "task-api"
+  version: "1.0-SNAPSHOT"
+  packaging: "jar"
+  repositoryPath: "com/larbotech/task-api/1.0-SNAPSHOT/task-api-1.0-SNAPSHOT.jar"
+  finalName: "task-api"
+  springBootExecutable: true
+  modulePath: "task-api"
+  environments:
+  - profile: "dev"
+    serverPort: 8080
+    contextPath: "/api/v1/autre"
+    actuatorEnabled: true
+    actuatorBasePath: "/management"
+    actuatorHealthPath: "/management/health"
+    actuatorInfoPath: "/management/info"
+  - profile: "hml"
+    serverPort: 8080
+    contextPath: "/api/v1/autre"
+    actuatorEnabled: true
+    actuatorBasePath: "/custom-management"
+    actuatorHealthPath: "/custom-management/health"
+    actuatorInfoPath: "/custom-management/info"
+  - profile: "prod"
+    serverPort: 8080
+    contextPath: "/api/v2/prod"
+    actuatorEnabled: true
+    actuatorBasePath: "/custom-management"
+    actuatorHealthPath: "/custom-management/health"
+    actuatorInfoPath: "/custom-management/info"
+  assemblyArtifacts:
+  - assemblyId: "distribution"
+    format: "zip"
+    repositoryPath: "com/larbotech/task-api/1.0-SNAPSHOT/task-api-1.0-SNAPSHOT.zip"
+  - assemblyId: "conf-dev"
+    format: "zip"
+    repositoryPath: "com/larbotech/task-api/1.0-SNAPSHOT/task-api-1.0-SNAPSHOT-conf-dev.zip"
+  - assemblyId: "conf-hml"
+    format: "zip"
+    repositoryPath: "com/larbotech/task-api/1.0-SNAPSHOT/task-api-1.0-SNAPSHOT-conf-hml.zip"
+  - assemblyId: "conf-prd"
+    format: "zip"
+    repositoryPath: "com/larbotech/task-api/1.0-SNAPSHOT/task-api-1.0-SNAPSHOT-conf-prd.zip"
+  mainClass: "com.larbotech.taskapi.TaskApiApplication"
+  buildPlugins:
+  - "spring-boot-maven-plugin"
+  - "maven-assembly-plugin"
+- groupId: "com.larbotech"
+  artifactId: "task-batch"
+  version: "1.0-SNAPSHOT"
+  packaging: "jar"
+  repositoryPath: "com/larbotech/task-batch/1.0-SNAPSHOT/task-batch-1.0-SNAPSHOT.jar"
+  finalName: "leila-task-batch"
+  springBootExecutable: true
+  modulePath: "task-batch"
+  environments:
+  - profile: "dev"
+    serverPort: 8081
+  - profile: "hml"
+    serverPort: 8081
+  - profile: "prod"
+    serverPort: 8081
+  assemblyArtifacts:
+  - assemblyId: "distribution"
+    format: "zip"
+    repositoryPath: "com/larbotech/task-batch/1.0-SNAPSHOT/task-batch-1.0-SNAPSHOT.zip"
+  - assemblyId: "conf-dev"
+    format: "zip"
+    repositoryPath: "com/larbotech/task-batch/1.0-SNAPSHOT/task-batch-1.0-SNAPSHOT-conf-dev.zip"
+  - assemblyId: "conf-hml"
+    format: "zip"
+    repositoryPath: "com/larbotech/task-batch/1.0-SNAPSHOT/task-batch-1.0-SNAPSHOT-conf-hml.zip"
+  - assemblyId: "conf-prd"
+    format: "zip"
+    repositoryPath: "com/larbotech/task-batch/1.0-SNAPSHOT/task-batch-1.0-SNAPSHOT-conf-prd.zip"
+  mainClass: "com.larbotech.taskbatch.TaskBatchApplication"
+  buildPlugins:
+  - "spring-boot-maven-plugin"
+  - "maven-assembly-plugin"
+- groupId: "com.larbotech"
+  artifactId: "common"
+  version: "1.0-SNAPSHOT"
+  packaging: "jar"
+  repositoryPath: "com/larbotech/common/1.0-SNAPSHOT/common-1.0-SNAPSHOT.jar"
+  finalName: "common-1.0-SNAPSHOT"
+  springBootExecutable: false
+  modulePath: "common"
+totalModules: 4
+deployableModulesCount: 3
+buildInfo:
+  gitCommitSha: "da310c1e96523724572dcaca8136be77d0f3ee01"
+  gitCommitShortSha: "da310c1"
+  gitBranch: "main"
+  gitDirty: true
+  gitRemoteUrl: "https://github.com/tourem/github-actions-project.git"
+  gitCommitMessage: "refactor: remove xmllint dependency from detection scripts"
+  gitCommitAuthor: "Mahamadou TOURE"
+  gitCommitTime: "2025-11-06T19:27:24"
+  buildTimestamp: "2025-11-09T18:36:04.797515"
+  buildHost: "MacBook-Pro-de-Mahamadou.local"
+  buildUser: "mtoure"

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deployment Descriptor - github-actions-project</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+    .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    h1 { color: #333; border-bottom: 3px solid #4CAF50; padding-bottom: 10px; }
+    h2 { color: #555; margin-top: 30px; border-bottom: 2px solid #ddd; padding-bottom: 8px; }
+    .info-grid { display: grid; grid-template-columns: 200px 1fr; gap: 10px; margin: 20px 0; }
+    .info-label { font-weight: bold; color: #666; }
+    .info-value { color: #333; }
+    .module { background: #f9f9f9; padding: 15px; margin: 15px 0; border-left: 4px solid #4CAF50; border-radius: 4px; }
+    .module-title { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 10px; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 3px; font-size: 12px; font-weight: bold; margin-right: 5px; }
+    .badge-spring { background: #6DB33F; color: white; }
+    .badge-jar { background: #2196F3; color: white; }
+    .badge-war { background: #FF9800; color: white; }
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+    th { background: #4CAF50; color: white; }
+    .timestamp { color: #999; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>github-actions-project</h1>
+    <p class="timestamp">Generated: 2025-11-09T18:36:04.920120</p>
+    <h2>Project Information</h2>
+    <div class="info-grid">
+      <div class="info-label">Group ID:</div><div class="info-value">com.larbotech</div>
+      <div class="info-label">Artifact ID:</div><div class="info-value">github-actions-project</div>
+      <div class="info-label">Version:</div><div class="info-value">1.0-SNAPSHOT</div>
+      <div class="info-label">Total Modules:</div><div class="info-value">4</div>
+      <div class="info-label">Deployable:</div><div class="info-value">3</div>
+    </div>
+    <h2>Deployable Modules</h2>
+    <div class="module">
+      <div class="module-title">task-api</div>
+      <span class="badge badge-jar">JAR</span>
+      <span class="badge badge-spring">SPRING BOOT</span>
+      <div class="info-grid" style="margin-top: 10px;">
+        <div class="info-label">Repository Path:</div><div class="info-value">com/larbotech/task-api/1.0-SNAPSHOT/task-api-1.0-SNAPSHOT.jar</div>
+        <div class="info-label">Main Class:</div><div class="info-value">com.larbotech.taskapi.TaskApiApplication</div>
+      </div>
+    </div>
+    <div class="module">
+      <div class="module-title">task-batch</div>
+      <span class="badge badge-jar">JAR</span>
+      <span class="badge badge-spring">SPRING BOOT</span>
+      <div class="info-grid" style="margin-top: 10px;">
+        <div class="info-label">Repository Path:</div><div class="info-value">com/larbotech/task-batch/1.0-SNAPSHOT/task-batch-1.0-SNAPSHOT.jar</div>
+        <div class="info-label">Main Class:</div><div class="info-value">com.larbotech.taskbatch.TaskBatchApplication</div>
+      </div>
+    </div>
+    <div class="module">
+      <div class="module-title">common</div>
+      <span class="badge badge-jar">JAR</span>
+      <div class="info-grid" style="margin-top: 10px;">
+        <div class="info-label">Repository Path:</div><div class="info-value">com/larbotech/common/1.0-SNAPSHOT/common-1.0-SNAPSHOT.jar</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
