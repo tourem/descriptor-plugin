@@ -708,38 +708,209 @@ public class GenerateDescriptorMojo extends AbstractMojo {
     private String coalesce(String a, String b) { return (a == null || a.isEmpty()) ? b : a; }
 
     /**
-     * Generate a simple static HTML documentation for the descriptor.
+     * Generate a rich, responsive HTML documentation for the descriptor with most JSON/YAML fields.
      */
     private void generateHtmlDoc(ProjectDescriptor d, Path htmlPath) throws IOException {
+        String title = "Descriptor " + escape(coalesce(d.projectName(), d.projectArtifactId()));
         StringBuilder sb = new StringBuilder();
-        sb.append("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Descriptor ")
+        sb.append("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">")
+          .append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
+          .append("<title>").append(title).append("</title>")
+          .append("<style>")
+          // Theme & palette (light/dark)
+          .append(":root{--bg:#f6f8fa;--card:#fff;--text:#24292e;--muted:#57606a;--accent:#2ea44f;--accent2:#0969da;--border:#d0d7de;--warn:#b42318;--shadow:0 1px 2px rgba(0,0,0,.06)}")
+          .append("@media (prefers-color-scheme: dark){:root{--bg:#0d1117;--card:#161b22;--text:#e6edf3;--muted:#8b949e;--accent:#2ea043;--accent2:#58a6ff;--border:#30363d;--warn:#ff6b6b;--shadow:none}}\n")
+          .append("*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif}\n")
+          .append("a{color:var(--accent2);text-decoration:none}a:hover{text-decoration:underline}\n")
+          .append(".container{max-width:1200px;margin:24px auto;padding:0 16px}\n")
+          .append(".topbar{position:sticky;top:0;z-index:10;background:var(--card);border-bottom:1px solid var(--border);box-shadow:var(--shadow)}\n")
+          .append(".topbar .inner{display:flex;align-items:center;gap:16px;justify-content:space-between;padding:10px 16px}\n")
+          .append(".brand{display:flex;align-items:center;gap:10px} .brand .title{font-size:18px;font-weight:700;margin:0}\n")
+          .append(".badges{display:flex;gap:6px;flex-wrap:wrap} .badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:600;background:#e6f0ff;color:var(--accent2);border:1px solid #bfd3ff} .badge.green{background:#e8f6ee;color:#1a7f37;border-color:#b4e1c5} .badge.warn{background:#fde8e8;color:#b42318;border-color:#f7c5c5}\n")
+          .append(".layout{display:grid;grid-template-columns:260px 1fr;gap:16px;margin-top:16px} @media(max-width:1000px){.layout{grid-template-columns:1fr}}\n")
+          .append(".toc{position:sticky;top:60px;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:12px;height:max-content}\n")
+          .append(".toc h3{margin:4px 0 8px 0;font-size:13px;color:var(--muted)} .toc a{display:block;padding:6px 8px;border-radius:6px;color:var(--text)} .toc a:hover{background:rgba(0,0,0,.04)}\n")
+          .append(".card{background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:16px}\n")
+          .append(".space{height:12px}\n")
+          .append(".kv{display:grid;grid-template-columns:220px 1fr;gap:8px;align-items:center} .kv .k{color:var(--muted)} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}\n")
+          .append("table{width:100%;border-collapse:collapse} th,td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top} th{background:rgba(0,0,0,.05);text-align:left} code{background:rgba(0,0,0,.06);padding:2px 4px;border-radius:4px}\n")
+          .append(".section-title{font-size:16px;margin:0 0 12px 0} .muted{color:var(--muted)}\n")
+          .append("details.module{border-left:4px solid var(--accent);padding-left:12px;margin:12px 0} details.module>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px} details.module>summary::-webkit-details-marker{display:none}\n")
+          .append(".summary-title{font-weight:700} .module-badges{display:flex;gap:6px;flex-wrap:wrap}\n")
+          .append(".controls{display:flex;gap:8px;align-items:center} .search{padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);width:260px}\n")
+          .append("footer{margin:24px 0;color:var(--muted);font-size:12px;text-align:center}\n")
+          .append("html{scroll-behavior:smooth;scroll-padding-top:72px}\n")
+          .append("#overview,#build,#modules{scroll-margin-top:72px}\n")
+          .append("</style>")
+          .append("<script>document.addEventListener('DOMContentLoaded',()=>{\n" +
+                  "  // Filter\n" +
+                  "  const q=document.getElementById('filter');\n" +
+                  "  const items=[...document.querySelectorAll('details.module')];\n" +
+                  "  if(q){q.addEventListener('input',()=>{const v=q.value.toLowerCase();items.forEach(el=>{const key=el.getAttribute('data-key')||'';el.style.display=!v||key.includes(v)?'block':'none';});});}\n" +
+                  "  // Anchor navigation (robust with sticky header)\n" +
+                  "  const offset=72;\n" +
+                  "  const scrollToId=(id)=>{const el=document.getElementById(id);if(!el)return;const y=el.getBoundingClientRect().top+window.pageYOffset-offset;window.scrollTo({top:y,behavior:'smooth'});};\n" +
+                  "  document.querySelectorAll('.toc a[href^=\\'#\\']').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();const id=a.getAttribute('href').substring(1);scrollToId(id);history.replaceState(null,'','#'+id);});});\n" +
+                  "  // If page opens with hash, adjust position\n" +
+                  "  if(location.hash){setTimeout(()=>{scrollToId(location.hash.substring(1));},0);}\n" +
+                  "});</script>")
+          .append("</head><body>");
+
+        // Top bar
+        sb.append("<div class=\"topbar\"><div class=\"inner\">")
+          .append("<div class=\"brand\"><div class=\"title\">")
           .append(escape(coalesce(d.projectName(), d.projectArtifactId())))
-          .append("</title><style>body{font-family:Arial,Helvetica,sans-serif;margin:20px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ddd;padding:8px;}th{background:#f5f5f5;text-align:left;}code{background:#f0f0f0;padding:2px 4px;border-radius:3px;}</style></head><body>");
-        sb.append("<h1>")
-          .append(escape(coalesce(d.projectName(), d.projectArtifactId())))
-          .append("</h1>");
-        sb.append("<p><strong>Version:</strong> ").append(escape(d.projectVersion())).append("</p>");
+          .append("</div><div class=\"muted\">")
+          .append("Group: ").append(escape(coalesce(d.projectGroupId(),""))).append(" • Artifact: ")
+          .append(escape(coalesce(d.projectArtifactId(),""))).append("</div></div>")
+          .append("<div class=\"controls\"><input id=\"filter\" class=\"search\" placeholder=\"Filter modules...\" aria-label=\"Filter modules\"></div>")
+          .append("<div class=\"badges\"><span class=\"badge green\">v").append(escape(coalesce(d.projectVersion(),""))).append("</span>")
+          .append("<span class=\"badge\">modules: ").append(String.valueOf(d.totalModules())).append("</span>")
+          .append("<span class=\"badge\">deployable: ").append(String.valueOf(d.deployableModulesCount())).append("</span></div>")
+          .append("</div></div>");
+
+        sb.append("<div class=\"container\"><div class=\"layout\">");
+
+        // TOC
+        sb.append("<nav class=\"toc\"><h3>Contents</h3>")
+          .append("<a href=\"#overview\">Overview</a>")
+          .append("<a href=\"#build\">Build & CI/CD</a>")
+          .append("<a href=\"#modules\">Deployable Modules</a>")
+          .append("</nav>");
+
+        // Main content
+        sb.append("<div>");
+
+        // Overview card
+        sb.append("<div id=\"overview\" class=\"card\"><div class=\"section-title\">Overview</div>")
+          .append("<div class=\"kv\"><div class=\"k\">Project</div><div>").append(escape(coalesce(d.projectName(), d.projectArtifactId()))).append("</div></div>")
+          .append("<div class=\"kv\"><div class=\"k\">Description</div><div>").append(escape(coalesce(d.projectDescription(),""))).append("</div></div>")
+          .append("<div class=\"kv\"><div class=\"k\">Generated At</div><div>").append(escape(String.valueOf(d.generatedAt()))).append("</div></div>")
+          .append("<div class=\"kv\"><div class=\"k\">GAV</div><div class=\"mono\">")
+          .append(escape(coalesce(d.projectGroupId(),""))).append(":")
+          .append(escape(coalesce(d.projectArtifactId(),""))).append(":")
+          .append(escape(coalesce(d.projectVersion(),""))).append("</div></div>")
+          .append("</div><div class=\"space\"></div>");
+
+        // Build & CI card
         if (d.buildInfo() != null) {
-            sb.append("<p><strong>Git:</strong> ")
-              .append(escape(coalesce(d.buildInfo().gitCommitSha(), "n/a")))
-              .append(" @ ")
-              .append(escape(coalesce(d.buildInfo().gitBranch(), "n/a")))
-              .append("</p>");
-        }
-        sb.append("<h2>Modules</h2>");
-        sb.append("<table><thead><tr><th>Artifact</th><th>Version</th><th>Packaging</th><th>Frameworks</th><th>Repository Path</th></tr></thead><tbody>");
-        if (d.deployableModules() != null) {
-            for (var m : d.deployableModules()) {
-                String frameworks = m.getFrameworks() == null ? (m.isSpringBootExecutable() ? "spring-boot" : "-")
-                        : String.join(",", m.getFrameworks());
-                sb.append("<tr><td>").append(escape(m.getArtifactId())).append("</td>")
-                  .append("<td>").append(escape(coalesce(m.getVersion(), ""))).append("</td>")
-                  .append("<td>").append(escape(coalesce(m.getPackaging(), ""))).append("</td>")
-                  .append("<td>").append(escape(frameworks)).append("</td>")
-                  .append("<td><code>").append(escape(coalesce(m.getRepositoryPath(), ""))).append("</code></td></tr>");
+            var b = d.buildInfo();
+            sb.append("<div id=\"build\" class=\"card\"><div class=\"section-title\">Build & CI/CD</div>")
+              .append("<table><tbody>");
+            if (b.gitCommitSha() != null) {
+                String shortSha = b.gitCommitSha().length() > 7 ? b.gitCommitSha().substring(0, 7) : b.gitCommitSha();
+                sb.append("<tr><th>Commit</th><td class=\"mono\">").append(escape(shortSha)).append("</td></tr>");
             }
+            if (b.gitBranch() != null) sb.append("<tr><th>Branch</th><td>").append(escape(b.gitBranch())).append("</td></tr>");
+            if (b.gitDirty()) sb.append("<tr><th>Dirty</th><td><span class=\"badge warn\">uncommitted changes</span></td></tr>");
+            if (b.gitTag() != null) sb.append("<tr><th>Tag</th><td>").append(escape(b.gitTag())).append("</td></tr>");
+            if (b.gitRepositoryUrl() != null) {
+                String url = b.gitRepositoryUrl();
+                String label = url;
+                sb.append("<tr><th>Remote</th><td>");
+                if (url.startsWith("http")) {
+                    sb.append("<a href=\"").append(escape(url)).append("\" target=\"_blank\">").append(escape(label)).append("</a>");
+                } else {
+                    sb.append(escape(label));
+                }
+                sb.append("</td></tr>");
+            }
+            if (b.ciProvider() != null) sb.append("<tr><th>CI Provider</th><td>").append(escape(b.ciProvider())).append("</td></tr>");
+            if (b.ciBuildId() != null) sb.append("<tr><th>Build</th><td>#").append(escape(b.ciBuildId())).append("</td></tr>");
+            if (b.ciBuildUrl() != null) sb.append("<tr><th>Build URL</th><td><a target=\"_blank\" href=\"").append(escape(b.ciBuildUrl())).append("\">").append(escape(b.ciBuildUrl())).append("</a></td></tr>");
+            if (b.ciActor() != null) sb.append("<tr><th>Actor</th><td>").append(escape(b.ciActor())).append("</td></tr>");
+            if (b.buildTimestamp() != null) sb.append("<tr><th>Build Timestamp</th><td>").append(escape(String.valueOf(b.buildTimestamp()))).append("</td></tr>");
+            sb.append("</tbody></table></div><div class=\"space\"></div>");
         }
-        sb.append("</tbody></table>");
+
+        // Modules section
+        sb.append("<div id=\"modules\" class=\"card\"><div class=\"section-title\">Deployable Modules</div>");
+        if (d.deployableModules() != null && !d.deployableModules().isEmpty()) {
+            for (var m : d.deployableModules()) {
+                String id = escape(coalesce(m.getArtifactId(), "module"));
+                String searchKey = (coalesce(m.getGroupId(), "")+" "+coalesce(m.getArtifactId(), "")+" "+coalesce(m.getVersion(), "")+" "+coalesce(m.getPackaging(), "")+" "+coalesce(m.getRepositoryPath(), "")).toLowerCase();
+                String frameworks = (m.getFrameworks() == null || m.getFrameworks().isEmpty())
+                        ? (m.isSpringBootExecutable() ? "spring-boot" : null)
+                        : String.join(", ", m.getFrameworks());
+                sb.append("<details class=\"module\" data-key=\"").append(escape(searchKey)).append("\">")
+                  .append("<summary>")
+                  .append("<span class=\"summary-title\">").append(id).append("</span>")
+                  .append("<span class=\"module-badges\">")
+                  .append("<span class=\"badge\">").append(escape(coalesce(m.getPackaging(), ""))).append("</span>");
+                if (m.isSpringBootExecutable()) sb.append("<span class=\"badge green\">SPRING BOOT</span>");
+                if (frameworks != null) sb.append("<span class=\"badge\">").append(escape(frameworks)).append("</span>");
+                sb.append("</span></summary>");
+
+                // Basics table
+                sb.append("<table><tbody>");
+                if (m.getGroupId() != null) sb.append("<tr><th>GroupId</th><td class=\"mono\">").append(escape(m.getGroupId())).append("</td></tr>");
+                if (m.getArtifactId() != null) sb.append("<tr><th>ArtifactId</th><td class=\"mono\">").append(escape(m.getArtifactId())).append("</td></tr>");
+                if (m.getVersion() != null) sb.append("<tr><th>Version</th><td>").append(escape(m.getVersion())).append("</td></tr>");
+                if (m.getClassifier() != null) sb.append("<tr><th>Classifier</th><td>").append(escape(m.getClassifier())).append("</td></tr>");
+                if (m.getFinalName() != null) sb.append("<tr><th>Final Name</th><td class=\"mono\">").append(escape(m.getFinalName())).append("</td></tr>");
+                if (m.getModulePath() != null) sb.append("<tr><th>Module Path</th><td class=\"mono\">").append(escape(m.getModulePath())).append("</td></tr>");
+                if (m.getRepositoryPath() != null) sb.append("<tr><th>Repository Path</th><td class=\"mono\"><code>")
+                        .append(escape(m.getRepositoryPath())).append("</code></td></tr>");
+                if (m.getMainClass() != null) sb.append("<tr><th>Main Class</th><td class=\"mono\">").append(escape(m.getMainClass())).append("</td></tr>");
+                if (m.getJavaVersion() != null) sb.append("<tr><th>Java Version</th><td>").append(escape(m.getJavaVersion())).append("</td></tr>");
+                sb.append("</tbody></table>");
+
+                // Build plugins
+                if (m.getBuildPlugins() != null && !m.getBuildPlugins().isEmpty()) {
+                    sb.append("<div class=\"section-title\">Build Plugins</div><div>");
+                    for (String p : m.getBuildPlugins()) sb.append("<span class=\"chip\">").append(escape(p)).append("</span>");
+                    sb.append("</div>");
+                }
+
+                // Local dependencies
+                if (m.getLocalDependencies() != null && !m.getLocalDependencies().isEmpty()) {
+                    sb.append("<div class=\"section-title\">Local Dependencies</div><ul>");
+                    for (String dep : m.getLocalDependencies()) sb.append("<li class=\"mono\">").append(escape(dep)).append("</li>");
+                    sb.append("</ul>");
+                }
+
+                // Assembly artifacts
+                if (m.getAssemblyArtifacts() != null && !m.getAssemblyArtifacts().isEmpty()) {
+                    sb.append("<div class=\"section-title\">Assembly Artifacts</div><table><thead><tr><th>Assembly ID</th><th>Format</th><th>Repository Path</th></tr></thead><tbody>");
+                    for (var a : m.getAssemblyArtifacts()) {
+                        sb.append("<tr><td>").append(escape(coalesce(a.assemblyId(), ""))).append("</td><td>")
+                          .append(escape(coalesce(a.format(), ""))).append("</td><td class=\"mono\"><code>")
+                          .append(escape(coalesce(a.repositoryPath(), ""))).append("</code></td></tr>");
+                    }
+                    sb.append("</tbody></table>");
+                }
+
+                // Environments
+                if (m.getEnvironments() != null && !m.getEnvironments().isEmpty()) {
+                    sb.append("<div class=\"section-title\">Environments</div><table><thead><tr>")
+                      .append("<th>Profile</th><th>Server Port</th><th>Context Path</th><th>Actuator</th><th>Base</th><th>Health</th><th>Info</th>")
+                      .append("</tr></thead><tbody>");
+                    for (var env : m.getEnvironments()) {
+                        sb.append("<tr><td>").append(escape(coalesce(env.profile(), ""))).append("</td>")
+                          .append("<td>").append(env.serverPort() == null ? "" : String.valueOf(env.serverPort())).append("</td>")
+                          .append("<td class=\"mono\">").append(escape(coalesce(env.contextPath(), ""))).append("</td>")
+                          .append("<td>").append(Boolean.TRUE.equals(env.actuatorEnabled()) ? "enabled" : (Boolean.FALSE.equals(env.actuatorEnabled()) ? "disabled" : "")).append("</td>")
+                          .append("<td class=\"mono\">").append(escape(coalesce(env.actuatorBasePath(), ""))).append("</td>")
+                          .append("<td class=\"mono\">").append(escape(coalesce(env.actuatorHealthPath(), ""))).append("</td>")
+                          .append("<td class=\"mono\">").append(escape(coalesce(env.actuatorInfoPath(), ""))).append("</td></tr>");
+                    }
+                    sb.append("</tbody></table>");
+                }
+
+                sb.append("</details>"); // module
+            }
+        } else {
+            sb.append("<div class=\"muted\">No deployable modules found.</div>");
+        }
+        sb.append("</div>"); // card modules
+
+        // End main & layout
+        sb.append("</div></div>");
+
+        // Footer
+        sb.append("<footer>Generated at ").append(escape(String.valueOf(d.generatedAt())))
+          .append(" • Descriptor Plugin</footer>");
+
         sb.append("</body></html>");
         Files.writeString(htmlPath, sb.toString(), StandardCharsets.UTF_8);
     }

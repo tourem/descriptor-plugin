@@ -686,3 +686,101 @@ This project is licensed under the Apache License 2.0.
 
 **Made with ❤️ by LarboTech**
 
+
+
+
+## Extend the plugin: build your own detector (SPI)
+
+The plugin exposes a lightweight SPI to add framework/technology detectors without changing the core.
+Use it to recognize Quarkus, Micronaut, Jakarta EE, or any other stack and enrich the descriptor.
+
+### When should you write a detector?
+- You want to tag a module with a framework (`frameworks`), and/or
+- You want to add framework-specific metadata into `frameworkDetails["<framework>"]` (e.g., `executable`, `classifier`, `finalName`).
+
+### API to implement
+Interface: `com.larbotech.maven.descriptor.service.spi.FrameworkDetector`
+
+```java
+public interface FrameworkDetector {
+    String name();
+    Optional<Map<String, Object>> detect(Model model, Path modulePath);
+}
+```
+
+- `name()` must return a stable unique identifier (e.g., `"quarkus"`).
+- `detect(..)` should return `Optional.empty()` if not detected, otherwise a `Map<String,Object>` (free-form key/values) that will be placed under `DeployableModule.frameworkDetails[name]` and will also add the `name` to `DeployableModule.frameworks`.
+
+### Example: Quarkus detector (based on the Maven plugin)
+```java
+package com.example.detectors;
+
+import com.larbotech.maven.descriptor.service.spi.FrameworkDetector;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.Plugin;
+
+import java.nio.file.Path;
+import java.util.*;
+
+public class QuarkusFrameworkDetector implements FrameworkDetector {
+    @Override public String name() { return "quarkus"; }
+
+    @Override
+    public Optional<Map<String, Object>> detect(Model model, Path modulePath) {
+        if (model.getBuild() == null || model.getBuild().getPlugins() == null) return Optional.empty();
+        boolean hasQuarkus = model.getBuild().getPlugins().stream().anyMatch(p ->
+            "io.quarkus".equals(Optional.ofNullable(p.getGroupId()).orElse("org.apache.maven.plugins")) &&
+            "quarkus-maven-plugin".equals(p.getArtifactId())
+        );
+        if (!hasQuarkus) return Optional.empty();
+        Map<String,Object> details = new HashMap<>();
+        details.put("detected", true);
+        // Add additional Quarkus-specific fields if needed (e.g., native build flag)
+        return Optional.of(details);
+    }
+}
+```
+
+### Register via ServiceLoader
+Create the following file in your JAR:
+
+```
+src/main/resources/META-INF/services/com.larbotech.maven.descriptor.service.spi.FrameworkDetector
+```
+Contents (one class per line):
+```
+com.example.detectors.QuarkusFrameworkDetector
+```
+
+The core (`MavenProjectAnalyzer`) automatically loads all implementations via `ServiceLoader`.
+
+### Packaging and usage
+- Add your detector as a dependency of the project that runs the plugin (or publish it as a shared JAR).
+- When running `mvn com.larbotech:descriptor-plugin:generate`, the plugin will have your JAR on the classpath and invoke the detector.
+
+### Access to Maven data
+You receive the module `Model` and its `modulePath`.
+- Inspect `model.getBuild().getPlugins()` to find plugins,
+- read `model.getProperties()` for flags,
+- parse files under `modulePath` if needed (e.g., YAML/JSON), keeping it lightweight.
+
+### Tips & troubleshooting
+- Stable names: keep a stable `name()` (e.g., `"quarkus"`) — it will be used as a key in the JSON.
+- Null-safety: return `Optional.empty()` when not detected; avoid adding empty fields into the map.
+- Classpath: ensure your JAR (with `META-INF/services/...`) is present when the plugin runs (e.g., as a dependency of the analyzed project, or via `-Dmaven.plugin.classpath` for advanced use-cases).
+- Tests: write a test that builds a minimal `Model` and verifies `detect(...)`.
+
+### Example output
+```json
+{
+  "frameworks": ["spring-boot", "quarkus"],
+  "frameworkDetails": {
+    "spring-boot": {"executable": true, "classifier": "exec"},
+    "quarkus": {"detected": true}
+  }
+}
+```
+
+### Where to see the result?
+- In `descriptor.json`/`descriptor.yaml` under `deployableModules[].frameworks` and `frameworkDetails`.
+- In the generated HTML (`-Ddescriptor.generateHtml=true`), frameworks appear as badges; their details can be added easily if you extend the view.
