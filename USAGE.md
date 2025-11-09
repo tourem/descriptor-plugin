@@ -3,12 +3,28 @@
 ## Description
 
 Le plugin Maven **Descriptor** génère automatiquement un descripteur JSON complet de votre projet Maven, incluant :
+
+### 🎯 Fonctionnalités de base
 - Les modules déployables (JAR, WAR, EAR)
 - Les exécutables Spring Boot
 - Les configurations par environnement (dev, hml, prod)
 - Les endpoints Actuator
 - Les artefacts Maven Assembly
 - Les métadonnées de déploiement
+
+### 🚀 Fonctionnalités avancées
+- **Métadonnées Git et CI/CD** : Traçabilité complète (commit SHA, branche, auteur, provider CI)
+- **Extensibilité par SPI** : Détection de frameworks pluggable (Spring Boot, Quarkus, Micronaut)
+- **Mode dry-run** : Aperçu dans la console sans générer de fichiers
+- **Documentation HTML** : Génération de rapports HTML lisibles
+- **Hooks post-génération** : Exécution de scripts personnalisés
+
+### 🎁 Fonctionnalités bonus
+- Export multi-formats (JSON, YAML)
+- Validation du descripteur
+- Signature numérique SHA-256
+- Compression GZIP
+- Notifications webhook
 
 ## Installation
 
@@ -112,6 +128,27 @@ mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
 ```
 Envoie un HTTP POST avec le contenu du descripteur vers l'URL spécifiée
 
+#### Mode dry-run (aperçu sans générer de fichiers)
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.summary=true
+```
+Affiche un tableau de bord ASCII dans la console avec un aperçu du projet
+
+#### Générer la documentation HTML
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.generateHtml=true
+```
+Résultat : `target/descriptor.html` - Page HTML lisible pour les équipes non techniques
+
+#### Exécuter un hook post-génération
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.postGenerationHook="./scripts/notifier.sh"
+```
+Exécute un script/commande local après la génération du descripteur
+
 #### Toutes les fonctionnalités combinées
 ```bash
 mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
@@ -121,7 +158,9 @@ mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
   -Ddescriptor.compress=true \
   -Ddescriptor.format=zip \
   -Ddescriptor.attach=true \
-  -Ddescriptor.webhookUrl=https://api.example.com/webhooks/descriptor
+  -Ddescriptor.generateHtml=true \
+  -Ddescriptor.webhookUrl=https://api.example.com/webhooks/descriptor \
+  -Ddescriptor.postGenerationHook="echo 'Descripteur généré!'"
 ```
 
 ### 2. Configuration dans le POM
@@ -207,7 +246,7 @@ mvn clean package
   "projectVersion": "1.0-SNAPSHOT",
   "projectName": "github-actions-project",
   "projectDescription": "Projet multi-modules avec API REST et Batch",
-  "generatedAt": [2025, 11, 9, 0, 20, 48, 83495000],
+  "generatedAt": "2025-11-09T14:20:48.083495",
   "deployableModules": [
     {
       "groupId": "com.larbotech",
@@ -241,9 +280,24 @@ mvn clean package
     }
   ],
   "totalModules": 4,
-  "deployableModulesCount": 3
+  "deployableModulesCount": 3,
+  "buildInfo": {
+    "gitCommitSha": "a6b5ba8f2c1d3e4f5a6b7c8d9e0f1a2b3c4d5e6f",
+    "gitCommitShortSha": "a6b5ba8",
+    "gitBranch": "feature/advanced-features",
+    "gitDirty": false,
+    "gitRemoteUrl": "https://github.com/tourem/github-actions-project.git",
+    "gitCommitMessage": "feat: Ajout des fonctionnalités avancées",
+    "gitCommitAuthor": "Mohamed Touré",
+    "gitCommitTime": "2025-11-09T13:15:30",
+    "buildTimestamp": "2025-11-09T14:20:48.083495",
+    "buildHost": "macbook-pro.local",
+    "buildUser": "mtoure"
+  }
 }
 ```
+
+> **Note** : La section `buildInfo` est **collectée automatiquement** lors de l'exécution du plugin. Elle inclut les métadonnées Git (commit, branche, auteur) et les informations de build (timestamp, host, utilisateur). Si le build s'exécute dans un environnement CI/CD (GitHub Actions, GitLab CI, Jenkins, etc.), des métadonnées CI supplémentaires seront incluses.
 
 ## Cas d'usage
 
@@ -278,16 +332,216 @@ jq -r '.deployableModules[] | select(.springBootExecutable == true) | .artifactI
 done
 ```
 
+## Métadonnées Git et CI/CD (Collecte Automatique)
+
+### 🔍 Comment ça fonctionne
+
+Le plugin **collecte automatiquement** les métadonnées Git et CI/CD pour une traçabilité complète. **Aucune configuration nécessaire !**
+
+Lors de l'exécution du plugin, il :
+1. ✅ Détecte si le projet est dans un dépôt Git
+2. ✅ Collecte les métadonnées Git (commit, branche, auteur, etc.)
+3. ✅ Détecte les variables d'environnement CI/CD
+4. ✅ Ajoute toutes les métadonnées dans la section `buildInfo` du descripteur
+
+### 📊 Métadonnées Git collectées
+
+- **Commit SHA** (version complète et courte de 7 caractères)
+- **Nom de la branche** (ex: `main`, `develop`, `feature/xyz`)
+- **Tag** (si le commit actuel est taggé, ex: `v1.0.0`)
+- **État dirty** (présence de modifications non commitées)
+- **URL du remote** (ex: `https://github.com/user/repo.git`)
+- **Message du commit** (dernier message de commit)
+- **Auteur du commit** (nom de l'auteur)
+- **Timestamp du commit** (date et heure du commit)
+
+### 🏗️ Métadonnées de build collectées
+
+- **Timestamp du build** (quand le descripteur a été généré)
+- **Host du build** (nom de la machine exécutant le build)
+- **Utilisateur du build** (nom d'utilisateur exécutant le build)
+
+### 🚀 Providers CI/CD détectés
+
+Le plugin détecte automatiquement et collecte les métadonnées de :
+
+| Provider | Variables d'environnement utilisées |
+|----------|-------------------------------------|
+| **GitHub Actions** | `GITHUB_ACTIONS`, `GITHUB_RUN_ID`, `GITHUB_RUN_NUMBER`, `GITHUB_WORKFLOW`, `GITHUB_ACTOR`, `GITHUB_EVENT_NAME`, `GITHUB_REPOSITORY` |
+| **GitLab CI** | `GITLAB_CI`, `CI_PIPELINE_ID`, `CI_PIPELINE_IID`, `CI_PIPELINE_URL`, `CI_JOB_NAME`, `CI_COMMIT_REF_NAME`, `GITLAB_USER_LOGIN` |
+| **Jenkins** | `JENKINS_URL`, `BUILD_ID`, `BUILD_NUMBER`, `BUILD_URL`, `JOB_NAME`, `GIT_BRANCH`, `BUILD_USER` |
+| **Travis CI** | `TRAVIS`, `TRAVIS_BUILD_ID`, `TRAVIS_BUILD_NUMBER`, `TRAVIS_BUILD_WEB_URL`, `TRAVIS_JOB_NAME`, `TRAVIS_EVENT_TYPE` |
+| **CircleCI** | `CIRCLECI`, `CIRCLE_BUILD_NUM`, `CIRCLE_BUILD_URL`, `CIRCLE_JOB`, `CIRCLE_USERNAME` |
+| **Azure Pipelines** | `TF_BUILD`, `BUILD_BUILDID`, `BUILD_BUILDNUMBER`, `BUILD_DEFINITIONNAME`, `BUILD_REQUESTEDFOR` |
+
+### 📝 Exemple de sortie (Build local)
+
+```json
+{
+  "buildInfo": {
+    "gitCommitSha": "a6b5ba8f2c1d3e4f5a6b7c8d9e0f1a2b3c4d5e6f",
+    "gitCommitShortSha": "a6b5ba8",
+    "gitBranch": "feature/advanced-features",
+    "gitDirty": false,
+    "gitRemoteUrl": "https://github.com/tourem/github-actions-project.git",
+    "gitCommitMessage": "feat: Ajout des fonctionnalités avancées",
+    "gitCommitAuthor": "Mohamed Touré",
+    "gitCommitTime": "2025-11-09T13:15:30",
+    "buildTimestamp": "2025-11-09T14:20:48.083495",
+    "buildHost": "macbook-pro.local",
+    "buildUser": "mtoure"
+  }
+}
+```
+
+### 📝 Exemple de sortie (GitHub Actions)
+
+```json
+{
+  "buildInfo": {
+    "gitCommitSha": "77e6c5e7e2b98b46a5601d81d6ecbe06b2b450cc",
+    "gitCommitShortSha": "77e6c5e",
+    "gitBranch": "main",
+    "gitTag": "v1.0.0",
+    "gitDirty": false,
+    "gitRemoteUrl": "https://github.com/tourem/github-actions-project.git",
+    "gitCommitMessage": "feat: Nouvelle fonctionnalité",
+    "gitCommitAuthor": "Mohamed Touré",
+    "gitCommitTime": "2025-11-09T12:13:37",
+    "ciProvider": "GitHub Actions",
+    "ciBuildId": "123456789",
+    "ciBuildNumber": "42",
+    "ciBuildUrl": "https://github.com/tourem/github-actions-project/actions/runs/123456789",
+    "ciJobName": "build",
+    "ciActor": "mtoure",
+    "ciEventName": "push",
+    "buildTimestamp": "2025-11-09T14:06:02.951024",
+    "buildHost": "runner-xyz",
+    "buildUser": "runner"
+  }
+}
+```
+
+### 💡 Cas d'usage
+
+**Traçabilité** : Savoir exactement quel commit Git a été utilisé pour construire chaque artefact
+```bash
+# Extraire le SHA du commit depuis le descripteur
+jq -r '.buildInfo.gitCommitSha' descriptor.json
+# Sortie : a6b5ba8f2c1d3e4f5a6b7c8d9e0f1a2b3c4d5e6f
+```
+
+**Reproductibilité** : Reconstruire exactement la même version
+```bash
+# Récupérer le commit et reconstruire
+COMMIT=$(jq -r '.buildInfo.gitCommitSha' descriptor.json)
+git checkout $COMMIT
+mvn clean package
+```
+
+**Audit** : Tracer qui a construit quoi et quand
+```bash
+# Afficher les informations de build
+jq '.buildInfo | {auteur: .gitCommitAuthor, timestamp: .buildTimestamp, host: .buildHost}' descriptor.json
+```
+
+## Détection de frameworks (SPI)
+
+### 🔌 Extensibilité par SPI
+
+Le plugin utilise une architecture **Service Provider Interface (SPI)** pour la détection de frameworks, ce qui le rend facilement extensible.
+
+### 📦 Détecteurs intégrés
+
+Le plugin inclut les détecteurs suivants :
+
+| Framework | Détecteur | Description |
+|-----------|-----------|-------------|
+| **Spring Boot** | `SpringBootFrameworkDetector` | Détecte les applications Spring Boot, collecte les profils, configurations, actuator |
+| **Quarkus** | `QuarkusFrameworkDetector` | Exemple de détecteur pour Quarkus (prêt pour extension) |
+
+### 🔍 Comment ça fonctionne
+
+Lors de l'analyse d'un module, le plugin :
+1. ✅ Charge tous les détecteurs de frameworks via ServiceLoader
+2. ✅ Vérifie si chaque détecteur est applicable au module
+3. ✅ Exécute les détecteurs applicables par ordre de priorité
+4. ✅ Enrichit le module avec les métadonnées spécifiques au framework
+
+### 📊 Logs de détection
+
+Lors de l'exécution, vous verrez :
+```
+[INFO] Loaded 2 framework detectors: Spring Boot, Quarkus
+[INFO] Analyzing Maven project at: /Users/mtoure/dev/github-actions-project
+```
+
+### 🛠️ Créer un détecteur personnalisé
+
+Pour ajouter le support d'un nouveau framework (Micronaut, Helidon, etc.) :
+
+1. **Créer une classe implémentant `FrameworkDetector`** :
+```java
+public class MicronautFrameworkDetector implements FrameworkDetector {
+    @Override
+    public String getFrameworkName() {
+        return "Micronaut";
+    }
+
+    @Override
+    public boolean isApplicable(Model model, Path modulePath) {
+        // Vérifier la présence de dépendances Micronaut
+        return model.getDependencies().stream()
+            .anyMatch(d -> d.getGroupId().equals("io.micronaut"));
+    }
+
+    @Override
+    public void enrichModule(DeployableModule.DeployableModuleBuilder builder,
+                            Model model, Path modulePath, Path projectRoot) {
+        // Ajouter les métadonnées spécifiques à Micronaut
+        builder.mainClass(detectMainClass(model));
+    }
+
+    @Override
+    public int getPriority() {
+        return 80; // Priorité d'exécution
+    }
+}
+```
+
+2. **Enregistrer via ServiceLoader** dans `META-INF/services/com.larbotech.maven.descriptor.spi.FrameworkDetector` :
+```
+com.example.MicronautFrameworkDetector
+```
+
+3. **Ajouter le JAR au classpath** du plugin dans votre `pom.xml` :
+```xml
+<plugin>
+    <groupId>com.larbotech</groupId>
+    <artifactId>descriptor-plugin</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <dependencies>
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>micronaut-detector</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+    </dependencies>
+</plugin>
+```
+
 ## Fonctionnalités détectées
 
 Le plugin détecte automatiquement :
 
-✅ **Modules déployables** : JAR, WAR, EAR  
-✅ **Spring Boot** : Exécutables, profils, configurations  
-✅ **Environnements** : dev, hml, prod avec configurations spécifiques  
-✅ **Actuator** : Endpoints health, info, métriques  
+✅ **Modules déployables** : JAR, WAR, EAR
+✅ **Spring Boot** : Exécutables, profils, configurations
+✅ **Environnements** : dev, hml, prod avec configurations spécifiques
+✅ **Actuator** : Endpoints health, info, métriques
 ✅ **Maven Assembly** : Artefacts ZIP, TAR.GZ
-✅ **Métadonnées** : Version Java, classe principale, ports
+✅ **Métadonnées Git/CI** : Commit, branche, auteur, provider CI (automatique)
+✅ **Métadonnées de build** : Version Java, classe principale, ports
+✅ **Frameworks** : Spring Boot, Quarkus (extensible via SPI)
 
 ## Formats d'archive et déploiement
 

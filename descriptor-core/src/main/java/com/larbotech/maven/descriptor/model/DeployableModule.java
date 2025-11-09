@@ -44,7 +44,13 @@ public class DeployableModule {
      * Example: com/larbotech/task/1.1.2-SNAPSHOT/task-1.1.2-SNAPSHOT.jar
      */
     private String repositoryPath;
-    
+
+    /**
+     * Full URL to the artifact in the Maven repository (if repository URL is configured)
+     * Example: https://nexus.example.com/repository/releases/com/larbotech/task/1.1.2-SNAPSHOT/task-1.1.2-SNAPSHOT.jar
+     */
+    private String repositoryUrl;
+
     /**
      * Final name of the artifact (may differ from artifactId-version if customized)
      */

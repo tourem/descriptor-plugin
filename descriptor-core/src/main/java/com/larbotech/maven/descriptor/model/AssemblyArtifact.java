@@ -10,12 +10,14 @@ import lombok.Builder;
  * @param assemblyId Assembly ID from the assembly descriptor (e.g., "conf-prd", "distribution", "conf-dev")
  * @param format Format of the assembly (zip, tar.gz, tar.bz2, etc.)
  * @param repositoryPath Path in Maven repository format (e.g., com/larbotech/task-batch/1.0-SNAPSHOT/task-batch-1.0-SNAPSHOT-conf-prd.zip)
+ * @param repositoryUrl Full URL to the assembly in the Maven repository (if repository URL is configured)
  */
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AssemblyArtifact(
     String assemblyId,
     String format,
-    String repositoryPath
+    String repositoryPath,
+    String repositoryUrl
 ) {}
 

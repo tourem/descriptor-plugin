@@ -45,6 +45,12 @@
       <artifactId>maven-core</artifactId>
     </dependency>
 
+    <!-- Plexus Utils for XML parsing (Xpp3Dom) -->
+    <dependency>
+      <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-utils</artifactId>
+    </dependency>
+
     <!-- XML parsing -->
     <dependency>
       <groupId>org.dom4j</groupId>
@@ -61,6 +67,13 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
+    </dependency>
+
+    <!-- JGit for Git metadata -->
+    <dependency>
+      <groupId>org.eclipse.jgit</groupId>
+      <artifactId>org.eclipse.jgit</artifactId>
+      <version>6.8.0.202311291450-r</version>
     </dependency>
 
     <!-- Testing -->

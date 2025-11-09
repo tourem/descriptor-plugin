@@ -4,6 +4,7 @@ A Maven plugin that automatically generates comprehensive JSON deployment descri
 
 ## Features
 
+### 🎯 Core Features
 ✅ **Automatic Module Detection**: Identifies deployable modules (JAR, WAR, EAR)
 ✅ **Spring Boot Support**: Detects Spring Boot executables, profiles, and configurations
 ✅ **Environment Configurations**: Extracts dev, hml, prod environment settings
@@ -11,6 +12,15 @@ A Maven plugin that automatically generates comprehensive JSON deployment descri
 ✅ **Maven Assembly**: Detects assembly artifacts (ZIP, TAR.GZ)
 ✅ **Deployment Metadata**: Java version, main class, server ports, context paths
 ✅ **Multi-Module Projects**: Full support for Maven reactor builds
+
+### 🚀 Advanced Features
+✅ **Git & CI/CD Metadata**: Complete traceability with commit SHA, branch, author, CI provider
+✅ **Framework Extensibility (SPI)**: Pluggable framework detection (Spring Boot, Quarkus, Micronaut)
+✅ **Dry-Run Mode**: Preview descriptor in console without generating files
+✅ **HTML Documentation**: Generate readable HTML reports for non-technical teams
+✅ **Post-Generation Hooks**: Execute custom scripts after descriptor generation
+
+### 🎁 Bonus Features
 ✅ **Multiple Export Formats**: JSON, YAML, or both
 ✅ **Validation**: Validate descriptor structure before generation
 ✅ **Digital Signature**: SHA-256 signature for integrity verification
@@ -135,7 +145,28 @@ mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
 ```
 Sends HTTP POST with descriptor content to the specified URL
 
-#### 13. All features combined
+#### 13. Dry-run mode (preview without generating files)
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.summary=true
+```
+Displays an ASCII dashboard in the console with project overview
+
+#### 14. Generate HTML documentation
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.generateHtml=true
+```
+Output: `target/descriptor.html` - Readable HTML page for non-technical teams
+
+#### 15. Execute post-generation hook
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.postGenerationHook="./scripts/notify.sh"
+```
+Executes a local script/command after descriptor generation
+
+#### 16. All features combined
 ```bash
 mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
   -Ddescriptor.exportFormat=both \
@@ -144,7 +175,9 @@ mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
   -Ddescriptor.compress=true \
   -Ddescriptor.format=zip \
   -Ddescriptor.attach=true \
-  -Ddescriptor.webhookUrl=https://api.example.com/webhooks/descriptor
+  -Ddescriptor.generateHtml=true \
+  -Ddescriptor.webhookUrl=https://api.example.com/webhooks/descriptor \
+  -Ddescriptor.postGenerationHook="echo 'Descriptor generated!'"
 ```
 
 ### POM Configuration
@@ -276,6 +309,8 @@ mvn clean package
 
 ## Configuration Parameters
 
+### Core Parameters
+
 | Parameter | System Property | Default | Description |
 |-----------|----------------|---------|-------------|
 | `outputFile` | `descriptor.outputFile` | `descriptor.json` | Name of the output JSON file |
@@ -285,6 +320,19 @@ mvn clean package
 | `format` | `descriptor.format` | none | Archive format: `zip`, `tar.gz`, `tar.bz2`, `jar` |
 | `classifier` | `descriptor.classifier` | `descriptor` | Classifier for the attached artifact |
 | `attach` | `descriptor.attach` | `false` | Attach artifact to project for deployment |
+
+### Advanced Features Parameters
+
+| Parameter | System Property | Default | Description |
+|-----------|----------------|---------|-------------|
+| `summary` | `descriptor.summary` | `false` | **Dry-run mode**: Print dashboard to console without generating files |
+| `generateHtml` | `descriptor.generateHtml` | `false` | **HTML generation**: Generate readable HTML documentation |
+| `postGenerationHook` | `descriptor.postGenerationHook` | none | **Post-hook**: Execute local script/command after generation |
+
+### Bonus Features Parameters
+
+| Parameter | System Property | Default | Description |
+|-----------|----------------|---------|-------------|
 | `exportFormat` | `descriptor.exportFormat` | `json` | Export format: `json`, `yaml`, `both` |
 | `validate` | `descriptor.validate` | `false` | Validate descriptor structure |
 | `sign` | `descriptor.sign` | `false` | Generate SHA-256 digital signature |
@@ -302,7 +350,7 @@ mvn clean package
   "projectVersion": "1.0.0",
   "projectName": "My Application",
   "projectDescription": "Multi-module Spring Boot application",
-  "generatedAt": [2025, 11, 9, 0, 20, 48, 83495000],
+  "generatedAt": "2025-11-09T14:20:48.083495",
   "deployableModules": [
     {
       "groupId": "com.example",
@@ -336,9 +384,263 @@ mvn clean package
     }
   ],
   "totalModules": 5,
-  "deployableModulesCount": 3
+  "deployableModulesCount": 3,
+  "buildInfo": {
+    "gitCommitSha": "a6b5ba8f2c1d3e4f5a6b7c8d9e0f1a2b3c4d5e6f",
+    "gitCommitShortSha": "a6b5ba8",
+    "gitBranch": "feature/advanced-features",
+    "gitDirty": false,
+    "gitRemoteUrl": "https://github.com/user/my-application.git",
+    "gitCommitMessage": "feat: Add advanced features",
+    "gitCommitAuthor": "John Doe",
+    "gitCommitTime": "2025-11-09T13:15:30",
+    "buildTimestamp": "2025-11-09T14:20:48.083495",
+    "buildHost": "build-server-01",
+    "buildUser": "jenkins"
+  }
 }
 ```
+
+> **Note**: The `buildInfo` section is **automatically collected** when the plugin runs. It includes Git metadata (commit, branch, author) and build information (timestamp, host, user). If running in a CI/CD environment (GitHub Actions, GitLab CI, Jenkins, etc.), additional CI metadata will be included.
+
+## Advanced Features Guide
+
+### 🔍 Git and CI/CD Metadata
+
+The plugin **automatically collects** Git and CI/CD metadata for complete traceability. No configuration needed!
+
+#### How It Works
+
+When you run the plugin, it automatically:
+1. ✅ Detects if the project is in a Git repository
+2. ✅ Collects Git metadata (commit, branch, author, etc.)
+3. ✅ Detects CI/CD environment variables
+4. ✅ Adds all metadata to the `buildInfo` section of the descriptor
+
+#### Git Metadata Collected
+
+- **Commit SHA** (full and short 7-char version)
+- **Branch name** (e.g., `main`, `develop`, `feature/xyz`)
+- **Tag** (if the current commit is tagged, e.g., `v1.0.0`)
+- **Dirty state** (whether there are uncommitted changes)
+- **Remote URL** (e.g., `https://github.com/user/repo.git`)
+- **Commit message** (last commit message)
+- **Commit author** (name of the author)
+- **Commit timestamp** (when the commit was made)
+
+#### Build Metadata Collected
+
+- **Build timestamp** (when the descriptor was generated)
+- **Build host** (hostname of the machine running the build)
+- **Build user** (username running the build)
+
+#### CI/CD Providers Detected
+
+The plugin automatically detects and collects metadata from:
+
+| Provider | Environment Variables Used |
+|----------|---------------------------|
+| **GitHub Actions** | `GITHUB_ACTIONS`, `GITHUB_RUN_ID`, `GITHUB_RUN_NUMBER`, `GITHUB_WORKFLOW`, `GITHUB_ACTOR`, `GITHUB_EVENT_NAME`, `GITHUB_REPOSITORY` |
+| **GitLab CI** | `GITLAB_CI`, `CI_PIPELINE_ID`, `CI_PIPELINE_IID`, `CI_PIPELINE_URL`, `CI_JOB_NAME`, `CI_COMMIT_REF_NAME`, `GITLAB_USER_LOGIN` |
+| **Jenkins** | `JENKINS_URL`, `BUILD_ID`, `BUILD_NUMBER`, `BUILD_URL`, `JOB_NAME`, `GIT_BRANCH`, `BUILD_USER` |
+| **Travis CI** | `TRAVIS`, `TRAVIS_BUILD_ID`, `TRAVIS_BUILD_NUMBER`, `TRAVIS_BUILD_WEB_URL`, `TRAVIS_JOB_NAME`, `TRAVIS_EVENT_TYPE` |
+| **CircleCI** | `CIRCLECI`, `CIRCLE_BUILD_NUM`, `CIRCLE_BUILD_URL`, `CIRCLE_JOB`, `CIRCLE_USERNAME` |
+| **Azure Pipelines** | `TF_BUILD`, `BUILD_BUILDID`, `BUILD_BUILDNUMBER`, `BUILD_DEFINITIONNAME`, `BUILD_REQUESTEDFOR` |
+
+#### Example Output (Local Build)
+
+```json
+{
+  "buildInfo": {
+    "gitCommitSha": "a6b5ba8f2c1d3e4f5a6b7c8d9e0f1a2b3c4d5e6f",
+    "gitCommitShortSha": "a6b5ba8",
+    "gitBranch": "feature/advanced-features",
+    "gitDirty": false,
+    "gitRemoteUrl": "https://github.com/user/repo.git",
+    "gitCommitMessage": "feat: Add advanced features",
+    "gitCommitAuthor": "John Doe",
+    "gitCommitTime": "2025-11-09T13:15:30",
+    "buildTimestamp": "2025-11-09T14:20:48.083495",
+    "buildHost": "macbook-pro.local",
+    "buildUser": "johndoe"
+  }
+}
+```
+
+#### Example Output (GitHub Actions)
+
+```json
+{
+  "buildInfo": {
+    "gitCommitSha": "77e6c5e7e2b98b46a5601d81d6ecbe06b2b450cc",
+    "gitCommitShortSha": "77e6c5e",
+    "gitBranch": "main",
+    "gitTag": "v1.0.0",
+    "gitDirty": false,
+    "gitRemoteUrl": "https://github.com/user/repo.git",
+    "gitCommitMessage": "feat: Add new feature",
+    "gitCommitAuthor": "John Doe",
+    "gitCommitTime": "2025-11-09T12:13:37",
+    "ciProvider": "GitHub Actions",
+    "ciBuildId": "123456789",
+    "ciBuildNumber": "42",
+    "ciBuildUrl": "https://github.com/user/repo/actions/runs/123456789",
+    "ciJobName": "build",
+    "ciActor": "john-doe",
+    "ciEventName": "push",
+    "buildTimestamp": "2025-11-09T14:06:02.951024",
+    "buildHost": "runner-xyz",
+    "buildUser": "runner"
+  }
+}
+```
+
+#### Use Cases
+
+**Traceability**: Know exactly which Git commit was used to build each artifact
+```bash
+# Extract commit SHA from descriptor
+jq -r '.buildInfo.gitCommitSha' descriptor.json
+# Output: a6b5ba8f2c1d3e4f5a6b7c8d9e0f1a2b3c4d5e6f
+```
+
+**Reproducibility**: Rebuild the exact same version
+```bash
+# Get the commit and rebuild
+COMMIT=$(jq -r '.buildInfo.gitCommitSha' descriptor.json)
+git checkout $COMMIT
+mvn clean package
+```
+
+**Audit Trail**: Track who built what and when
+```bash
+# Show build information
+jq '.buildInfo | {author: .gitCommitAuthor, timestamp: .buildTimestamp, host: .buildHost}' descriptor.json
+```
+
+### 🔌 Framework Extensibility (SPI)
+
+The plugin uses a Service Provider Interface (SPI) for framework detection, making it easy to extend:
+
+**Built-in Detectors:**
+- **SpringBootFrameworkDetector**: Detects Spring Boot applications
+- **QuarkusFrameworkDetector**: Example for Quarkus (ready for extension)
+
+**Creating a Custom Detector:**
+
+1. Implement the `FrameworkDetector` interface:
+```java
+public class MicronautFrameworkDetector implements FrameworkDetector {
+    @Override
+    public String getFrameworkName() {
+        return "Micronaut";
+    }
+
+    @Override
+    public boolean isApplicable(Model model, Path modulePath) {
+        // Check for Micronaut dependencies
+        return model.getDependencies().stream()
+            .anyMatch(d -> d.getGroupId().equals("io.micronaut"));
+    }
+
+    @Override
+    public void enrichModule(DeployableModule.DeployableModuleBuilder builder,
+                            Model model, Path modulePath, Path projectRoot) {
+        // Add Micronaut-specific metadata
+        builder.mainClass(detectMainClass(model));
+    }
+
+    @Override
+    public int getPriority() {
+        return 80; // Execution priority
+    }
+}
+```
+
+2. Register via ServiceLoader in `META-INF/services/com.larbotech.maven.descriptor.spi.FrameworkDetector`:
+```
+com.example.MicronautFrameworkDetector
+```
+
+### 🎨 UX/DX Improvements
+
+#### Dry-Run Mode
+
+Preview the descriptor without generating files:
+
+```bash
+mvn descriptor:generate -Ddescriptor.summary=true
+```
+
+**Output:**
+```
+╔═══════════════════════════════════════════════════════════════════════╗
+║                    DESCRIPTOR SUMMARY (DRY-RUN)                       ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+  Project: My Application
+  Group ID: com.example
+  Artifact ID: my-app
+  Version: 1.0.0
+  Generated At: 2025-11-09T14:05:39.037985
+
+┌───────────────────────────────────────────────────────────────────────┐
+│ MODULES SUMMARY                                                       │
+├───────────────────────────────────────────────────────────────────────┤
+│ Total Modules:      5                                                 │
+│ Deployable Modules: 3                                                 │
+└───────────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────────┐
+│ DEPLOYABLE MODULES                                                    │
+├───────────────────────────────────────────────────────────────────────┤
+│ • api-service (jar)
+│   Path: com/example/api-service/1.0.0/api-service-1.0.0.jar
+│   Type: Spring Boot Executable
+│   Main Class: com.example.api.ApiApplication
+│   Environments: 3
+└───────────────────────────────────────────────────────────────────────┘
+```
+
+#### HTML Documentation
+
+Generate a readable HTML page for non-technical teams:
+
+```bash
+mvn descriptor:generate -Ddescriptor.generateHtml=true
+```
+
+Creates `target/descriptor.html` with:
+- Modern, responsive design
+- Color-coded badges (JAR, WAR, Spring Boot)
+- Project information grid
+- Deployable modules list
+- Build information
+
+#### Post-Generation Hooks
+
+Execute custom scripts after descriptor generation:
+
+```bash
+# Simple notification
+mvn descriptor:generate \
+  -Ddescriptor.postGenerationHook="echo 'Descriptor generated!'"
+
+# Copy to deployment directory
+mvn descriptor:generate \
+  -Ddescriptor.postGenerationHook="cp target/descriptor.json /deploy/"
+
+# Execute custom script
+mvn descriptor:generate \
+  -Ddescriptor.postGenerationHook="./scripts/process-descriptor.sh"
+```
+
+**Use Cases:**
+- Copy descriptor to shared location
+- Send local notifications
+- Trigger validation scripts
+- Generate derived files
+- Update configuration management systems
 
 ## Use Cases
 

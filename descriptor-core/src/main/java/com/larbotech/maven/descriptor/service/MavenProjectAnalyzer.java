@@ -4,6 +4,7 @@ import com.larbotech.maven.descriptor.model.AssemblyArtifact;
 import com.larbotech.maven.descriptor.model.DeployableModule;
 import com.larbotech.maven.descriptor.model.PackagingType;
 import com.larbotech.maven.descriptor.model.ProjectDescriptor;
+import com.larbotech.maven.descriptor.spi.FrameworkDetector;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
@@ -14,8 +15,8 @@ import java.io.FileReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -31,6 +32,8 @@ public class MavenProjectAnalyzer {
     private final DeploymentMetadataDetector metadataDetector;
     private final EnvironmentConfigDetector environmentConfigDetector;
     private final ExecutablePluginDetector executablePluginDetector;
+    private final GitInfoCollector gitInfoCollector;
+    private final List<FrameworkDetector> frameworkDetectors;
 
     /**
      * Default constructor that initializes all dependencies.
@@ -43,6 +46,28 @@ public class MavenProjectAnalyzer {
         this.environmentConfigDetector = new EnvironmentConfigDetector();
         this.metadataDetector = new DeploymentMetadataDetector();
         this.executablePluginDetector = new ExecutablePluginDetector();
+        this.gitInfoCollector = new GitInfoCollector();
+        this.frameworkDetectors = loadFrameworkDetectors();
+    }
+
+    /**
+     * Load framework detectors via ServiceLoader and sort by priority.
+     */
+    private List<FrameworkDetector> loadFrameworkDetectors() {
+        ServiceLoader<FrameworkDetector> loader = ServiceLoader.load(FrameworkDetector.class);
+        List<FrameworkDetector> detectors = new ArrayList<>();
+        loader.forEach(detectors::add);
+
+        // Sort by priority (higher first)
+        detectors.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
+
+        log.info("Loaded {} framework detectors: {}",
+                detectors.size(),
+                detectors.stream()
+                    .map(FrameworkDetector::getFrameworkName)
+                    .collect(Collectors.joining(", ")));
+
+        return detectors;
     }
     
     /**
@@ -95,6 +120,32 @@ public class MavenProjectAnalyzer {
                 }
             }
             
+            // Collect build info
+            var buildInfo = gitInfoCollector.collectBuildInfo(projectRootPath);
+
+            // Extract Maven repository URL from distributionManagement
+            String mavenRepositoryUrl = extractMavenRepositoryUrl(rootModel);
+
+            // Enrich modules with repository URLs
+            if (mavenRepositoryUrl != null) {
+                deployableModules.forEach(module -> {
+                    if (module.getRepositoryPath() != null) {
+                        module.setRepositoryUrl(mavenRepositoryUrl + "/" + module.getRepositoryPath());
+                    }
+                    if (module.getAssemblyArtifacts() != null) {
+                        List<AssemblyArtifact> enrichedAssemblies = module.getAssemblyArtifacts().stream()
+                            .map(assembly -> AssemblyArtifact.builder()
+                                .assemblyId(assembly.assemblyId())
+                                .format(assembly.format())
+                                .repositoryPath(assembly.repositoryPath())
+                                .repositoryUrl(mavenRepositoryUrl + "/" + assembly.repositoryPath())
+                                .build())
+                            .collect(Collectors.toList());
+                        module.setAssemblyArtifacts(enrichedAssemblies);
+                    }
+                });
+            }
+
             return ProjectDescriptor.builder()
                     .projectGroupId(resolveGroupId(rootModel))
                     .projectArtifactId(rootModel.getArtifactId())
@@ -105,6 +156,8 @@ public class MavenProjectAnalyzer {
                     .deployableModules(deployableModules)
                     .totalModules(totalModules)
                     .deployableModulesCount(deployableModules.size())
+                    .buildInfo(buildInfo)
+                    .mavenRepositoryUrl(mavenRepositoryUrl)
                     .build();
                     
         } catch (Exception e) {
@@ -218,7 +271,7 @@ public class MavenProjectAnalyzer {
             buildPlugins = null; // Don't include empty list in JSON
         }
 
-        return DeployableModule.builder()
+        DeployableModule.DeployableModuleBuilder builder = DeployableModule.builder()
                 .groupId(groupId)
                 .artifactId(artifactId)
                 .version(version)
@@ -233,8 +286,18 @@ public class MavenProjectAnalyzer {
                 .javaVersion(javaVersion)
                 .mainClass(mainClass)
                 .localDependencies(localDeps)
-                .buildPlugins(buildPlugins)
-                .build();
+                .buildPlugins(buildPlugins);
+
+        // Apply framework detectors via SPI
+        for (FrameworkDetector detector : frameworkDetectors) {
+            if (detector.isApplicable(model, modulePath)) {
+                log.debug("Applying {} detector to module {}",
+                         detector.getFrameworkName(), artifactId);
+                detector.enrichModule(builder, model, modulePath, projectRoot);
+            }
+        }
+
+        return builder.build();
     }
     
     /**
@@ -272,7 +335,37 @@ public class MavenProjectAnalyzer {
         }
         throw new IllegalStateException("Cannot resolve version for module: " + model.getArtifactId());
     }
-    
+
+    /**
+     * Extract Maven repository URL from distributionManagement section.
+     * Looks for repository or snapshotRepository URL.
+     */
+    private String extractMavenRepositoryUrl(Model model) {
+        if (model.getDistributionManagement() == null) {
+            log.debug("No distributionManagement found in POM");
+            return null;
+        }
+
+        var distMgmt = model.getDistributionManagement();
+
+        // Try to get release repository URL
+        if (distMgmt.getRepository() != null && distMgmt.getRepository().getUrl() != null) {
+            String url = distMgmt.getRepository().getUrl();
+            log.info("Found Maven repository URL: {}", url);
+            return url;
+        }
+
+        // Try to get snapshot repository URL
+        if (distMgmt.getSnapshotRepository() != null && distMgmt.getSnapshotRepository().getUrl() != null) {
+            String url = distMgmt.getSnapshotRepository().getUrl();
+            log.info("Found Maven snapshot repository URL: {}", url);
+            return url;
+        }
+
+        log.debug("No repository URL found in distributionManagement");
+        return null;
+    }
+
     /**
      * Determine the final name of the artifact.
      * This may be customized in the build configuration.

@@ -1,0 +1,7 @@
+# Framework Detectors registered via ServiceLoader
+# Add your custom framework detectors here
+
+# Built-in detectors
+com.larbotech.maven.descriptor.spi.impl.SpringBootFrameworkDetector
+com.larbotech.maven.descriptor.spi.impl.QuarkusFrameworkDetector
+
