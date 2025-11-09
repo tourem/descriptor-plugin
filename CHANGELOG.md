@@ -8,6 +8,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+#### 🚀 Advanced Features (Feature Branch: feature/advanced-features)
+
+- **Git and CI/CD Metadata Collection**: Complete traceability and build reproducibility
+  - `BuildInfo` record with comprehensive Git metadata
+    - Git commit SHA (full and short), branch, tag, dirty state
+    - Git remote URL, commit message, author, timestamp
+  - CI/CD provider detection from environment variables
+    - Supported: GitHub Actions, GitLab CI, Jenkins, Travis CI, CircleCI, Azure Pipelines
+    - Captures: provider name, build ID, build number, build URL, job name, actor, event name
+  - Build context metadata: timestamp, host, user
+  - `GitInfoCollector` service using JGit (6.8.0.202311291450-r)
+  - Automatic integration in descriptor JSON via `buildInfo` field
+
+- **SPI for Framework Extensibility**: Plugin architecture for framework detection
+  - `FrameworkDetector` SPI interface for pluggable framework detection
+    - `getFrameworkName()`: Framework identifier
+    - `isApplicable(Model, Path)`: Detection logic
+    - `enrichModule(builder, model, modulePath, projectRoot)`: Metadata enrichment
+    - `getPriority()`: Execution order control
+  - `SpringBootFrameworkDetector`: Production-ready Spring Boot detector
+    - Reuses existing Spring Boot detection services
+    - Priority: 100 (high)
+  - `QuarkusFrameworkDetector`: Example implementation for Quarkus
+    - Detects Quarkus dependencies
+    - Priority: 90
+    - Ready for future extension
+  - ServiceLoader configuration for automatic detector registration
+  - Dynamic loading with priority-based execution
+  - Enables extending plugin for Quarkus, Micronaut, Jakarta EE without core modifications
+
+- **UX/DX Improvements**: Enhanced developer experience
+  - **Dry-run/Summary Mode**: `-Ddescriptor.summary=true`
+    - Prints ASCII dashboard to console without generating files
+    - Shows project info, modules summary, deployable modules, build info
+    - Perfect for quick project overview
+  - **HTML Documentation Generation**: `-Ddescriptor.generateHtml=true`
+    - Generates readable HTML page from descriptor
+    - Modern design with CSS styling
+    - Color-coded badges (JAR, WAR, Spring Boot)
+    - Responsive layout for non-technical teams
+  - **Post-Generation Hooks**: `-Ddescriptor.postGenerationHook=<command>`
+    - Executes local script/command after descriptor generation
+    - Use cases: file copying, notifications, validation scripts
+    - Non-blocking: logs output, doesn't fail build on error
+
+#### 🎁 Bonus Features
+
 - **Multiple Export Formats**: Support for JSON, YAML, or both formats simultaneously
   - `exportFormat` parameter: `json`, `yaml`, or `both`
   - YAML export using Jackson YAML dataformat
@@ -41,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Apache Commons Compress dependency for archive creation
 - Jackson YAML dataformat dependency for YAML export
 - Apache HttpClient 5 dependency for webhook notifications
+- Eclipse JGit dependency for Git metadata extraction
 
 ### Changed
 - Fixed date serialization to ISO-8601 format (e.g., "2025-11-09T00:47:09.317185") instead of array format

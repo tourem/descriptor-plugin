@@ -3,12 +3,28 @@
 ## Description
 
 Le plugin Maven **Descriptor** génère automatiquement un descripteur JSON complet de votre projet Maven, incluant :
+
+### 🎯 Fonctionnalités de base
 - Les modules déployables (JAR, WAR, EAR)
 - Les exécutables Spring Boot
 - Les configurations par environnement (dev, hml, prod)
 - Les endpoints Actuator
 - Les artefacts Maven Assembly
 - Les métadonnées de déploiement
+
+### 🚀 Fonctionnalités avancées
+- **Métadonnées Git et CI/CD** : Traçabilité complète (commit SHA, branche, auteur, provider CI)
+- **Extensibilité par SPI** : Détection de frameworks pluggable (Spring Boot, Quarkus, Micronaut)
+- **Mode dry-run** : Aperçu dans la console sans générer de fichiers
+- **Documentation HTML** : Génération de rapports HTML lisibles
+- **Hooks post-génération** : Exécution de scripts personnalisés
+
+### 🎁 Fonctionnalités bonus
+- Export multi-formats (JSON, YAML)
+- Validation du descripteur
+- Signature numérique SHA-256
+- Compression GZIP
+- Notifications webhook
 
 ## Installation
 
@@ -112,6 +128,27 @@ mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
 ```
 Envoie un HTTP POST avec le contenu du descripteur vers l'URL spécifiée
 
+#### Mode dry-run (aperçu sans générer de fichiers)
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.summary=true
+```
+Affiche un tableau de bord ASCII dans la console avec un aperçu du projet
+
+#### Générer la documentation HTML
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.generateHtml=true
+```
+Résultat : `target/descriptor.html` - Page HTML lisible pour les équipes non techniques
+
+#### Exécuter un hook post-génération
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.postGenerationHook="./scripts/notifier.sh"
+```
+Exécute un script/commande local après la génération du descripteur
+
 #### Toutes les fonctionnalités combinées
 ```bash
 mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
@@ -121,7 +158,9 @@ mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
   -Ddescriptor.compress=true \
   -Ddescriptor.format=zip \
   -Ddescriptor.attach=true \
-  -Ddescriptor.webhookUrl=https://api.example.com/webhooks/descriptor
+  -Ddescriptor.generateHtml=true \
+  -Ddescriptor.webhookUrl=https://api.example.com/webhooks/descriptor \
+  -Ddescriptor.postGenerationHook="echo 'Descripteur généré!'"
 ```
 
 ### 2. Configuration dans le POM
