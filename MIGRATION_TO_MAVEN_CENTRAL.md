@@ -26,12 +26,11 @@ This document summarizes all changes made to migrate the project from `com.larbo
   - Developers: Mamadou Touré
   - SCM: GitHub repository information
   - Issue Management: GitHub Issues
-- ✅ Added `distributionManagement` for Sonatype Central
 - ✅ Configured plugins for Maven Central:
   - `maven-source-plugin` - Generate sources JAR
   - `maven-javadoc-plugin` - Generate javadoc JAR (with Lombok error suppression)
   - `maven-gpg-plugin` - Sign artifacts with GPG
-  - `nexus-staging-maven-plugin` - Deploy to Sonatype
+  - `central-publishing-maven-plugin` - Deploy to Sonatype Central Portal
 - ✅ Created `release` profile for GPG signing
 
 #### Module POMs

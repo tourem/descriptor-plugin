@@ -66,7 +66,7 @@
     <maven-source-plugin.version>3.3.0</maven-source-plugin.version>
     <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
     <maven-gpg-plugin.version>3.1.0</maven-gpg-plugin.version>
-    <nexus-staging-plugin.version>1.6.13</nexus-staging-plugin.version>
+    <central-publishing-plugin.version>0.4.0</central-publishing-plugin.version>
   </properties>
 
   <dependencyManagement>
@@ -267,16 +267,16 @@
           <version>${maven-gpg-plugin.version}</version>
         </plugin>
 
-        <!-- Nexus Staging Plugin -->
+        <!-- Central Publishing Plugin for Maven Central -->
         <plugin>
-          <groupId>org.sonatype.plugins</groupId>
-          <artifactId>nexus-staging-maven-plugin</artifactId>
-          <version>${nexus-staging-plugin.version}</version>
+          <groupId>org.sonatype.central</groupId>
+          <artifactId>central-publishing-maven-plugin</artifactId>
+          <version>${central-publishing-plugin.version}</version>
           <extensions>true</extensions>
           <configuration>
-            <serverId>central</serverId>
-            <nexusUrl>https://central.sonatype.com/</nexusUrl>
-            <autoReleaseAfterClose>true</autoReleaseAfterClose>
+            <publishingServerId>central</publishingServerId>
+            <tokenAuth>true</tokenAuth>
+            <autoPublish>true</autoPublish>
           </configuration>
         </plugin>
       </plugins>
@@ -311,24 +311,15 @@
         </executions>
       </plugin>
 
-      <!-- Nexus Staging Plugin -->
+      <!-- Central Publishing Plugin -->
       <plugin>
-        <groupId>org.sonatype.plugins</groupId>
-        <artifactId>nexus-staging-maven-plugin</artifactId>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
       </plugin>
     </plugins>
   </build>
 
-  <distributionManagement>
-    <snapshotRepository>
-      <id>central</id>
-      <url>https://central.sonatype.com/</url>
-    </snapshotRepository>
-    <repository>
-      <id>central</id>
-      <url>https://central.sonatype.com/</url>
-    </repository>
-  </distributionManagement>
+
 
   <profiles>
     <!-- Profile for Maven Central release -->
