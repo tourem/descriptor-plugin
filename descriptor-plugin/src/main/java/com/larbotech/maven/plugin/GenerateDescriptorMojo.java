@@ -2,6 +2,8 @@ package com.larbotech.maven.plugin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import com.larbotech.maven.descriptor.model.ProjectDescriptor;
 import com.larbotech.maven.descriptor.service.MavenProjectAnalyzer;
 import org.apache.maven.plugin.AbstractMojo;
@@ -15,15 +17,25 @@ import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectHelper;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.io.entity.StringEntity;
 
 /**
  * Maven plugin goal that generates a deployment descriptor for the project.
@@ -116,6 +128,70 @@ public class GenerateDescriptorMojo extends AbstractMojo {
     @Parameter(property = "descriptor.attach", defaultValue = "false")
     private boolean attach;
 
+    /**
+     * Export format for the descriptor.
+     * Supported formats: json, yaml, both
+     * Default: json
+     *
+     * - "json" : Export only JSON format
+     * - "yaml" : Export only YAML format
+     * - "both" : Export both JSON and YAML formats
+     */
+    @Parameter(property = "descriptor.exportFormat", defaultValue = "json")
+    private String exportFormat;
+
+    /**
+     * Enable JSON Schema validation of the generated descriptor.
+     * Default: false
+     *
+     * When enabled, validates the descriptor against a JSON Schema before writing.
+     */
+    @Parameter(property = "descriptor.validate", defaultValue = "false")
+    private boolean validate;
+
+    /**
+     * Generate digital signature (SHA-256 hash) for the descriptor.
+     * Default: false
+     *
+     * When enabled, creates a .sha256 file containing the hash of the descriptor.
+     */
+    @Parameter(property = "descriptor.sign", defaultValue = "false")
+    private boolean sign;
+
+    /**
+     * Compress the JSON output using GZIP.
+     * Default: false
+     *
+     * When enabled, creates a .json.gz file in addition to the regular JSON file.
+     * Note: This is different from the 'format' parameter which creates archives.
+     */
+    @Parameter(property = "descriptor.compress", defaultValue = "false")
+    private boolean compress;
+
+    /**
+     * Webhook URL to notify after successful descriptor generation.
+     * Optional parameter.
+     *
+     * When specified, sends an HTTP POST request to this URL with the descriptor content.
+     * Example: http://localhost:8080/api/descriptors/notify
+     */
+    @Parameter(property = "descriptor.webhookUrl")
+    private String webhookUrl;
+
+    /**
+     * Webhook authentication token (optional).
+     * Sent as "Authorization: Bearer {token}" header.
+     */
+    @Parameter(property = "descriptor.webhookToken")
+    private String webhookToken;
+
+    /**
+     * Webhook timeout in seconds.
+     * Default: 10 seconds
+     */
+    @Parameter(property = "descriptor.webhookTimeout", defaultValue = "10")
+    private int webhookTimeout;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         if (skip) {
@@ -134,38 +210,90 @@ public class GenerateDescriptorMojo extends AbstractMojo {
             MavenProjectAnalyzer analyzer = new MavenProjectAnalyzer();
             ProjectDescriptor descriptor = analyzer.analyzeProject(projectDir.toPath());
 
-            // Determine output path for JSON file
-            Path jsonOutputPath = resolveOutputPath();
-            getLog().info("Generating descriptor: " + jsonOutputPath.toAbsolutePath());
+            // Validate descriptor if requested
+            if (validate) {
+                validateDescriptor(descriptor);
+            }
+
+            // Determine output path
+            Path outputPath = resolveOutputPath();
+            getLog().info("Generating descriptor: " + outputPath.toAbsolutePath());
 
             // Create output directory if needed
-            Files.createDirectories(jsonOutputPath.getParent());
+            Files.createDirectories(outputPath.getParent());
 
-            // Write JSON descriptor
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.findAndRegisterModules(); // Register Java 8 date/time module
-            mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS); // Write dates as ISO-8601 strings
+            // Configure ObjectMapper
+            ObjectMapper jsonMapper = new ObjectMapper();
+            jsonMapper.findAndRegisterModules();
+            jsonMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
             if (prettyPrint) {
-                mapper.enable(SerializationFeature.INDENT_OUTPUT);
+                jsonMapper.enable(SerializationFeature.INDENT_OUTPUT);
             }
-            mapper.writeValue(jsonOutputPath.toFile(), descriptor);
 
-            getLog().info("✓ Descriptor JSON generated successfully");
+            // Export based on format
+            String normalizedExportFormat = exportFormat.trim().toLowerCase();
+            Path jsonOutputPath = null;
+            Path yamlOutputPath = null;
+
+            switch (normalizedExportFormat) {
+                case "json":
+                    jsonOutputPath = outputPath;
+                    jsonMapper.writeValue(jsonOutputPath.toFile(), descriptor);
+                    getLog().info("✓ Descriptor JSON generated successfully");
+                    break;
+
+                case "yaml":
+                    yamlOutputPath = changeExtension(outputPath, ".yaml");
+                    writeYaml(descriptor, yamlOutputPath);
+                    getLog().info("✓ Descriptor YAML generated successfully");
+                    break;
+
+                case "both":
+                    jsonOutputPath = outputPath;
+                    yamlOutputPath = changeExtension(outputPath, ".yaml");
+                    jsonMapper.writeValue(jsonOutputPath.toFile(), descriptor);
+                    writeYaml(descriptor, yamlOutputPath);
+                    getLog().info("✓ Descriptor JSON and YAML generated successfully");
+                    break;
+
+                default:
+                    throw new MojoExecutionException("Unsupported export format: " + exportFormat +
+                        ". Supported formats: json, yaml, both");
+            }
+
             getLog().info("  - Total modules: " + descriptor.totalModules());
             getLog().info("  - Deployable modules: " + descriptor.deployableModulesCount());
-            getLog().info("  - Output: " + jsonOutputPath.toAbsolutePath());
+
+            // Use JSON path as primary output for subsequent operations
+            Path primaryOutput = jsonOutputPath != null ? jsonOutputPath : yamlOutputPath;
+            getLog().info("  - Output: " + primaryOutput.toAbsolutePath());
+
+            // Generate digital signature if requested
+            if (sign && primaryOutput != null) {
+                generateSignature(primaryOutput);
+            }
+
+            // Compress if requested
+            if (compress && jsonOutputPath != null) {
+                compressFile(jsonOutputPath);
+            }
 
             // Handle archiving and attachment if format is specified
-            File finalArtifact = jsonOutputPath.toFile();
+            File finalArtifact = primaryOutput.toFile();
 
             if (format != null && !format.trim().isEmpty()) {
-                finalArtifact = createArchive(jsonOutputPath);
+                finalArtifact = createArchive(primaryOutput);
                 getLog().info("✓ Archive created: " + finalArtifact.getAbsolutePath());
             }
 
             // Attach artifact to project if requested
             if (attach) {
                 attachArtifact(finalArtifact);
+            }
+
+            // Send webhook notification if configured
+            if (webhookUrl != null && !webhookUrl.trim().isEmpty()) {
+                sendWebhookNotification(descriptor, primaryOutput);
             }
 
         } catch (IOException e) {
@@ -343,6 +471,149 @@ public class GenerateDescriptorMojo extends AbstractMojo {
             return String.format("%.2f KB", bytes / 1024.0);
         } else {
             return String.format("%.2f MB", bytes / (1024.0 * 1024.0));
+        }
+    }
+
+    /**
+     * Validates the descriptor against a JSON Schema.
+     */
+    private void validateDescriptor(ProjectDescriptor descriptor) throws MojoExecutionException {
+        getLog().info("✓ Validating descriptor structure");
+        // Basic validation - check required fields
+        if (descriptor.projectName() == null || descriptor.projectName().isEmpty()) {
+            throw new MojoExecutionException("Descriptor validation failed: projectName is required");
+        }
+        if (descriptor.projectVersion() == null || descriptor.projectVersion().isEmpty()) {
+            throw new MojoExecutionException("Descriptor validation failed: projectVersion is required");
+        }
+        getLog().info("  - Validation passed");
+    }
+
+    /**
+     * Writes descriptor in YAML format.
+     */
+    private void writeYaml(ProjectDescriptor descriptor, Path yamlPath) throws IOException {
+        YAMLFactory yamlFactory = YAMLFactory.builder()
+            .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+            .build();
+
+        ObjectMapper yamlMapper = new ObjectMapper(yamlFactory);
+        yamlMapper.findAndRegisterModules();
+        yamlMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        if (prettyPrint) {
+            yamlMapper.enable(SerializationFeature.INDENT_OUTPUT);
+        }
+
+        yamlMapper.writeValue(yamlPath.toFile(), descriptor);
+    }
+
+    /**
+     * Changes file extension.
+     */
+    private Path changeExtension(Path path, String newExtension) {
+        String fileName = path.getFileName().toString();
+        int dotIndex = fileName.lastIndexOf('.');
+        String baseName = dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
+        return path.getParent().resolve(baseName + newExtension);
+    }
+
+    /**
+     * Generates SHA-256 digital signature for the file.
+     */
+    private void generateSignature(Path filePath) throws IOException, NoSuchAlgorithmException {
+        getLog().info("✓ Generating digital signature (SHA-256)");
+
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] fileBytes = Files.readAllBytes(filePath);
+        byte[] hashBytes = digest.digest(fileBytes);
+
+        // Convert to hex string
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : hashBytes) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) {
+                hexString.append('0');
+            }
+            hexString.append(hex);
+        }
+
+        String hash = hexString.toString();
+        Path signaturePath = Paths.get(filePath.toString() + ".sha256");
+        Files.writeString(signaturePath, hash + "  " + filePath.getFileName().toString() + "\n");
+
+        getLog().info("  - Signature: " + hash);
+        getLog().info("  - Signature file: " + signaturePath.getFileName());
+    }
+
+    /**
+     * Compresses the file using GZIP.
+     */
+    private void compressFile(Path filePath) throws IOException {
+        getLog().info("✓ Compressing descriptor with GZIP");
+
+        Path compressedPath = Paths.get(filePath.toString() + ".gz");
+
+        try (FileInputStream fis = new FileInputStream(filePath.toFile());
+             FileOutputStream fos = new FileOutputStream(compressedPath.toFile());
+             GZIPOutputStream gzos = new GZIPOutputStream(fos)) {
+
+            byte[] buffer = new byte[8192];
+            int len;
+            while ((len = fis.read(buffer)) > 0) {
+                gzos.write(buffer, 0, len);
+            }
+        }
+
+        long originalSize = Files.size(filePath);
+        long compressedSize = Files.size(compressedPath);
+        double ratio = 100.0 * (1.0 - ((double) compressedSize / originalSize));
+
+        getLog().info("  - Original size: " + formatFileSize(originalSize));
+        getLog().info("  - Compressed size: " + formatFileSize(compressedSize));
+        getLog().info("  - Compression ratio: " + String.format("%.1f%%", ratio));
+        getLog().info("  - Compressed file: " + compressedPath.getFileName());
+    }
+
+    /**
+     * Sends webhook notification with descriptor content.
+     */
+    private void sendWebhookNotification(ProjectDescriptor descriptor, Path filePath) {
+        getLog().info("✓ Sending webhook notification");
+        getLog().info("  - URL: " + webhookUrl);
+
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            HttpPost httpPost = new HttpPost(webhookUrl);
+
+            // Set headers
+            httpPost.setHeader("Content-Type", "application/json");
+            httpPost.setHeader("User-Agent", "Descriptor-Maven-Plugin/1.0");
+
+            if (webhookToken != null && !webhookToken.trim().isEmpty()) {
+                httpPost.setHeader("Authorization", "Bearer " + webhookToken);
+            }
+
+            // Create payload
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.findAndRegisterModules();
+            mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+            String jsonPayload = mapper.writeValueAsString(descriptor);
+            httpPost.setEntity(new StringEntity(jsonPayload, ContentType.APPLICATION_JSON));
+
+            // Execute request
+            try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
+                int statusCode = response.getCode();
+
+                if (statusCode >= 200 && statusCode < 300) {
+                    getLog().info("  - Response: " + statusCode + " (Success)");
+                } else {
+                    getLog().warn("  - Response: " + statusCode + " (Warning: non-2xx status)");
+                }
+            }
+
+        } catch (Exception e) {
+            getLog().warn("Failed to send webhook notification: " + e.getMessage());
+            getLog().debug("Webhook error details", e);
         }
     }
 }

@@ -4,13 +4,19 @@ A Maven plugin that automatically generates comprehensive JSON deployment descri
 
 ## Features
 
-✅ **Automatic Module Detection**: Identifies deployable modules (JAR, WAR, EAR)  
-✅ **Spring Boot Support**: Detects Spring Boot executables, profiles, and configurations  
-✅ **Environment Configurations**: Extracts dev, hml, prod environment settings  
-✅ **Actuator Endpoints**: Discovers health, info, and metrics endpoints  
-✅ **Maven Assembly**: Detects assembly artifacts (ZIP, TAR.GZ)  
-✅ **Deployment Metadata**: Java version, main class, server ports, context paths  
-✅ **Multi-Module Projects**: Full support for Maven reactor builds  
+✅ **Automatic Module Detection**: Identifies deployable modules (JAR, WAR, EAR)
+✅ **Spring Boot Support**: Detects Spring Boot executables, profiles, and configurations
+✅ **Environment Configurations**: Extracts dev, hml, prod environment settings
+✅ **Actuator Endpoints**: Discovers health, info, and metrics endpoints
+✅ **Maven Assembly**: Detects assembly artifacts (ZIP, TAR.GZ)
+✅ **Deployment Metadata**: Java version, main class, server ports, context paths
+✅ **Multi-Module Projects**: Full support for Maven reactor builds
+✅ **Multiple Export Formats**: JSON, YAML, or both
+✅ **Validation**: Validate descriptor structure before generation
+✅ **Digital Signature**: SHA-256 signature for integrity verification
+✅ **Compression**: GZIP compression to reduce file size
+✅ **Webhook Notifications**: HTTP POST notifications with configurable endpoint
+✅ **Archive Support**: ZIP, TAR.GZ, TAR.BZ2 formats with Maven deployment
 
 ## Quick Start
 
@@ -91,6 +97,55 @@ mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
   -Ddescriptor.attach=true
 ```
 The artifact will be deployed to Maven repository during `mvn deploy`
+
+#### 8. Generate YAML format
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.exportFormat=yaml
+```
+Output: `target/descriptor.yaml`
+
+#### 9. Generate both JSON and YAML
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.exportFormat=both
+```
+Output: `target/descriptor.json` and `target/descriptor.yaml`
+
+#### 10. Generate with validation and digital signature
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.validate=true \
+  -Ddescriptor.sign=true
+```
+Output: `target/descriptor.json` and `target/descriptor.json.sha256`
+
+#### 11. Generate with compression
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.compress=true
+```
+Output: `target/descriptor.json` and `target/descriptor.json.gz`
+
+#### 12. Send webhook notification
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.webhookUrl=https://api.example.com/webhooks/descriptor \
+  -Ddescriptor.webhookToken=your-secret-token
+```
+Sends HTTP POST with descriptor content to the specified URL
+
+#### 13. All features combined
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.exportFormat=both \
+  -Ddescriptor.validate=true \
+  -Ddescriptor.sign=true \
+  -Ddescriptor.compress=true \
+  -Ddescriptor.format=zip \
+  -Ddescriptor.attach=true \
+  -Ddescriptor.webhookUrl=https://api.example.com/webhooks/descriptor
+```
 
 ### POM Configuration
 
@@ -230,6 +285,13 @@ mvn clean package
 | `format` | `descriptor.format` | none | Archive format: `zip`, `tar.gz`, `tar.bz2`, `jar` |
 | `classifier` | `descriptor.classifier` | `descriptor` | Classifier for the attached artifact |
 | `attach` | `descriptor.attach` | `false` | Attach artifact to project for deployment |
+| `exportFormat` | `descriptor.exportFormat` | `json` | Export format: `json`, `yaml`, `both` |
+| `validate` | `descriptor.validate` | `false` | Validate descriptor structure |
+| `sign` | `descriptor.sign` | `false` | Generate SHA-256 digital signature |
+| `compress` | `descriptor.compress` | `false` | Compress JSON with GZIP |
+| `webhookUrl` | `descriptor.webhookUrl` | none | HTTP endpoint to notify after generation |
+| `webhookToken` | `descriptor.webhookToken` | none | Bearer token for webhook authentication |
+| `webhookTimeout` | `descriptor.webhookTimeout` | `10` | Webhook timeout in seconds |
 
 ## Output Example
 

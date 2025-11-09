@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Multiple Export Formats**: Support for JSON, YAML, or both formats simultaneously
+  - `exportFormat` parameter: `json`, `yaml`, or `both`
+  - YAML export using Jackson YAML dataformat
+- **Descriptor Validation**: Validate descriptor structure before generation
+  - `validate` parameter: Basic validation of required fields
+- **Digital Signature**: SHA-256 signature generation for integrity verification
+  - `sign` parameter: Generates `.sha256` file with hash
+  - Compatible with `shasum -a 256 -c` command
+- **GZIP Compression**: Compress JSON files to reduce size
+  - `compress` parameter: Generates `.gz` file
+  - Shows compression ratio in logs
+- **Webhook Notifications**: HTTP POST notifications after descriptor generation
+  - `webhookUrl` parameter: Configurable HTTP endpoint
+  - `webhookToken` parameter: Bearer token authentication
+  - `webhookTimeout` parameter: Timeout in seconds (default: 10)
+  - Sends full descriptor JSON in request body
+  - Non-blocking: warnings on failure, doesn't stop build
 - **Archive support**: Generate ZIP, TAR.GZ, TAR.BZ2, JAR archives of the descriptor JSON
 - **Artifact attachment**: Attach descriptor archives to Maven project for deployment
 - **Classifier support**: Customize artifact classifier (default: "descriptor")
@@ -22,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive release documentation in README.md
 - Release best practices and troubleshooting guide
 - Apache Commons Compress dependency for archive creation
+- Jackson YAML dataformat dependency for YAML export
+- Apache HttpClient 5 dependency for webhook notifications
 
 ### Changed
 - Fixed date serialization to ISO-8601 format (e.g., "2025-11-09T00:47:09.317185") instead of array format

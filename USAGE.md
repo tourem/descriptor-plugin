@@ -75,6 +75,55 @@ mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
 ```
 L'artifact sera déployé vers le repository Maven lors de `mvn deploy`
 
+#### Générer au format YAML
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.exportFormat=yaml
+```
+Résultat : `target/descriptor.yaml`
+
+#### Générer JSON et YAML
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.exportFormat=both
+```
+Résultat : `target/descriptor.json` et `target/descriptor.yaml`
+
+#### Générer avec validation et signature numérique
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.validate=true \
+  -Ddescriptor.sign=true
+```
+Résultat : `target/descriptor.json` et `target/descriptor.json.sha256`
+
+#### Générer avec compression
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.compress=true
+```
+Résultat : `target/descriptor.json` et `target/descriptor.json.gz`
+
+#### Envoyer une notification webhook
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.webhookUrl=https://api.example.com/webhooks/descriptor \
+  -Ddescriptor.webhookToken=votre-token-secret
+```
+Envoie un HTTP POST avec le contenu du descripteur vers l'URL spécifiée
+
+#### Toutes les fonctionnalités combinées
+```bash
+mvn com.larbotech:descriptor-plugin:1.0-SNAPSHOT:generate \
+  -Ddescriptor.exportFormat=both \
+  -Ddescriptor.validate=true \
+  -Ddescriptor.sign=true \
+  -Ddescriptor.compress=true \
+  -Ddescriptor.format=zip \
+  -Ddescriptor.attach=true \
+  -Ddescriptor.webhookUrl=https://api.example.com/webhooks/descriptor
+```
+
 ### 2. Configuration dans le POM
 
 Vous pouvez configurer le plugin directement dans votre `pom.xml` :
@@ -141,6 +190,13 @@ mvn clean package
 | `format` | `descriptor.format` | aucun | Format d'archive: `zip`, `tar.gz`, `tar.bz2`, `jar` |
 | `classifier` | `descriptor.classifier` | `descriptor` | Classifier pour l'artifact attaché |
 | `attach` | `descriptor.attach` | `false` | Attacher l'artifact au projet pour déploiement |
+| `exportFormat` | `descriptor.exportFormat` | `json` | Format d'export: `json`, `yaml`, `both` |
+| `validate` | `descriptor.validate` | `false` | Valider la structure du descripteur |
+| `sign` | `descriptor.sign` | `false` | Générer une signature numérique SHA-256 |
+| `compress` | `descriptor.compress` | `false` | Compresser le JSON avec GZIP |
+| `webhookUrl` | `descriptor.webhookUrl` | aucun | URL HTTP pour notification après génération |
+| `webhookToken` | `descriptor.webhookToken` | aucun | Token Bearer pour authentification webhook |
+| `webhookTimeout` | `descriptor.webhookTimeout` | `10` | Timeout du webhook en secondes |
 
 ## Exemple de sortie
 
