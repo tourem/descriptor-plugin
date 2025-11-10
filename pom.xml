@@ -257,6 +257,14 @@
             <additionalOptions>
               <additionalOption>-Xdoclint:none</additionalOption>
             </additionalOptions>
+            <!-- Add Lombok to annotation processor path for Javadoc -->
+            <annotationProcessorPaths>
+              <path>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+              </path>
+            </annotationProcessorPaths>
           </configuration>
         </plugin>
 
