@@ -63,7 +63,7 @@ mvn io.github.tourem:descriptor-plugin:1.1.0:generate
 Generate a deployment descriptor at your project root:
 
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.0.0:generate
+mvn io.github.tourem:descriptor-plugin:1.1.0:generate
 ```
 
 This creates a `descriptor.json` file containing all deployment information.
@@ -694,7 +694,7 @@ jobs:
 deploy:
   stage: deploy
   script:
-    - mvn io.github.tourem:descriptor-plugin:1.0.0:generate
+    - mvn io.github.tourem:descriptor-plugin:1.1.0:generate
     - |
       jq -r '.deployableModules[]' descriptor.json | while read -r module; do
         echo "Processing module: $module"
@@ -709,7 +709,7 @@ deploy:
 # deploy.sh - Automated deployment script
 
 # Generate deployment descriptor
-mvn io.github.tourem:descriptor-plugin:1.0.0:generate
+mvn io.github.tourem:descriptor-plugin:1.1.0:generate
 
 # Extract deployable modules
 MODULES=$(jq -r '.deployableModules[] | select(.springBootExecutable == true)' descriptor.json)

@@ -64,7 +64,7 @@ mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
 
 #### Désactiver le pretty print
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.0.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
   -Ddescriptor.prettyPrint=false
 ```
 
@@ -308,7 +308,7 @@ Utilisez le descripteur généré dans vos pipelines CI/CD pour automatiser le d
 ```yaml
 # GitHub Actions example
 - name: Generate deployment descriptor
-  run: mvn io.github.tourem:descriptor-plugin:1.0.0:generate
+  run: mvn io.github.tourem:descriptor-plugin:1.1.0:generate
 
 - name: Deploy using descriptor
   run: |
@@ -323,7 +323,7 @@ Utilisez le descripteur généré dans vos pipelines CI/CD pour automatiser le d
 # deploy.sh
 
 # Générer le descripteur
-mvn io.github.tourem:descriptor-plugin:1.0.0:generate
+mvn io.github.tourem:descriptor-plugin:1.1.0:generate
 
 # Parser et déployer chaque module
 jq -r '.deployableModules[] | select(.springBootExecutable == true) | .artifactId' descriptor.json | while read module; do
