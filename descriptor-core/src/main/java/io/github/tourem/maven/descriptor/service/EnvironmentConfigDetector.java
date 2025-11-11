@@ -248,9 +248,10 @@ public class EnvironmentConfigDetector {
         }
 
         // Try server.port from properties
-        if (config.get("server.port") instanceof Integer port) {
+        Object portObj = config.get("server.port");
+        if (portObj instanceof Integer port) {
             return port;
-        } else if (config.get("server.port") instanceof Object portObj && portObj != null) {
+        } else if (portObj != null) {
             try {
                 return Integer.parseInt(portObj.toString());
             } catch (NumberFormatException e) {

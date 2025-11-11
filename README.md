@@ -2,7 +2,7 @@
 
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.tourem/descriptor-plugin.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.tourem/descriptor-plugin)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Java Version](https://img.shields.io/badge/Java-21%2B-blue)](https://openjdk.org/)
+[![Java Version](https://img.shields.io/badge/Java-17%2B-blue)](https://openjdk.org/)
 
 A Maven plugin that automatically generates comprehensive deployment descriptors for your Maven projects, including Spring Boot applications, multi-module projects, and environment-specific configurations.
 
@@ -46,7 +46,7 @@ Add the plugin to your project's `pom.xml`:
         <plugin>
             <groupId>io.github.tourem</groupId>
             <artifactId>descriptor-plugin</artifactId>
-            <version>1.1.0</version>
+            <version>1.2.0</version>
         </plugin>
     </plugins>
 </build>
@@ -55,7 +55,7 @@ Add the plugin to your project's `pom.xml`:
 Or use it directly without adding to POM:
 
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate
 ```
 
 ### Basic Usage
@@ -63,7 +63,7 @@ mvn io.github.tourem:descriptor-plugin:1.1.0:generate
 Generate a deployment descriptor at your project root:
 
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate
 ```
 
 This creates a `descriptor.json` file containing all deployment information.
@@ -74,39 +74,39 @@ This creates a `descriptor.json` file containing all deployment information.
 
 #### 1. Generate with default settings
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate
 ```
 Output: `descriptor.json` at project root
 
 #### 2. Custom output file name
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.outputFile=deployment-info.json
 ```
 
 #### 3. Custom output directory
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.outputDirectory=target \
   -Ddescriptor.outputFile=deployment-descriptor.json
 ```
 
 #### 4. Compact JSON (no pretty print)
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.prettyPrint=false
 ```
 
 #### 5. Generate ZIP archive
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.format=zip
 ```
 Output: `target/myapp-1.0-SNAPSHOT-descriptor.zip`
 
 #### 6. Generate TAR.GZ archive with custom classifier
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.format=tar.gz \
   -Ddescriptor.classifier=deployment
 ```
@@ -114,7 +114,7 @@ Output: `target/myapp-1.0-SNAPSHOT-deployment.tar.gz`
 
 #### 7. Generate and attach to project for deployment
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.format=zip \
   -Ddescriptor.attach=true
 ```
@@ -122,21 +122,21 @@ The artifact will be deployed to Maven repository during `mvn deploy`
 
 #### 8. Generate YAML format
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.exportFormat=yaml
 ```
 Output: `target/descriptor.yaml`
 
 #### 9. Generate both JSON and YAML
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.exportFormat=both
 ```
 Output: `target/descriptor.json` and `target/descriptor.yaml`
 
 #### 10. Generate with validation and digital signature
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.validate=true \
   -Ddescriptor.sign=true
 ```
@@ -144,14 +144,14 @@ Output: `target/descriptor.json` and `target/descriptor.json.sha256`
 
 #### 11. Generate with compression
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.compress=true
 ```
 Output: `target/descriptor.json` and `target/descriptor.json.gz`
 
 #### 12. Send webhook notification
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.webhookUrl=https://api.example.com/webhooks/descriptor \
   -Ddescriptor.webhookToken=your-secret-token
 ```
@@ -159,28 +159,28 @@ Sends HTTP POST with descriptor content to the specified URL
 
 #### 13. Dry-run mode (preview without generating files)
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.summary=true
 ```
 Displays an ASCII dashboard in the console with project overview
 
 #### 14. Generate HTML documentation
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.generateHtml=true
 ```
 Output: `target/descriptor.html` - Readable HTML page for non-technical teams
 
 #### 15. Execute post-generation hook
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.postGenerationHook="./scripts/notify.sh"
 ```
 Executes a local script/command after descriptor generation
 
 #### 16. All features combined
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.exportFormat=both \
   -Ddescriptor.validate=true \
   -Ddescriptor.sign=true \
@@ -202,7 +202,7 @@ Configure the plugin to run automatically during the build:
         <plugin>
             <groupId>io.github.tourem</groupId>
             <artifactId>descriptor-plugin</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>1.2.0</version>
             <configuration>
                 <!-- Output file name (default: descriptor.json) -->
                 <outputFile>deployment-info.json</outputFile>
@@ -629,6 +629,25 @@ Creates `target/descriptor.html` with:
 - Deployable modules list
 - Build information
 
+
+#### HTML Output Example
+
+You can generate a human‑readable HTML report alongside the JSON/YAML descriptor.
+
+```bash
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate -Ddescriptor.generateHtml=true
+```
+
+Example screenshots of the generated `descriptor.html`:
+
+- Overview
+
+![Descriptor HTML – Overview](images/html1.jpg)
+
+- Modules and details
+
+![Descriptor HTML – Modules](images/html2.jpg)
+
 #### Post-Generation Hooks
 
 Execute custom scripts after descriptor generation:
@@ -671,15 +690,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
-      - name: Set up JDK 21
+
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
-          java-version: '21'
-          
+          java-version: '17'
+
       - name: Build and generate descriptor
         run: mvn clean package
-        
+
       - name: Parse and deploy
         run: |
           MODULES=$(jq -r '.deployableModules[] | select(.springBootExecutable == true) | .artifactId' target/descriptor.json)
@@ -694,7 +713,7 @@ jobs:
 deploy:
   stage: deploy
   script:
-    - mvn io.github.tourem:descriptor-plugin:1.1.0:generate
+    - mvn io.github.tourem:descriptor-plugin:1.2.0:generate
     - |
       jq -r '.deployableModules[]' descriptor.json | while read -r module; do
         echo "Processing module: $module"
@@ -709,7 +728,7 @@ deploy:
 # deploy.sh - Automated deployment script
 
 # Generate deployment descriptor
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate
 
 # Extract deployable modules
 MODULES=$(jq -r '.deployableModules[] | select(.springBootExecutable == true)' descriptor.json)
@@ -719,11 +738,11 @@ echo "$MODULES" | jq -c '.' | while read -r module; do
     ARTIFACT_ID=$(echo "$module" | jq -r '.artifactId')
     REPO_PATH=$(echo "$module" | jq -r '.repositoryPath')
     MAIN_CLASS=$(echo "$module" | jq -r '.mainClass')
-    
+
     echo "Deploying $ARTIFACT_ID..."
     echo "  Repository path: $REPO_PATH"
     echo "  Main class: $MAIN_CLASS"
-    
+
     # Your deployment commands here
     # scp, kubectl, docker, etc.
 done
@@ -747,7 +766,7 @@ descriptor-parent/
 
 ## Requirements
 
-- **Java**: 21 or higher
+- **Java**: 17 or higher
 - **Maven**: 3.6.0 or higher
 
 ## Building from Source
@@ -794,7 +813,7 @@ The release workflow automatically calculates the next SNAPSHOT version based on
 
 | Release Version | Next SNAPSHOT Version |
 |----------------|----------------------|
-| `1.1.0` | `1.2.0-SNAPSHOT` |
+| `1.2.0` | `1.3.0-SNAPSHOT` |
 | `1.5.0` | `1.6.0-SNAPSHOT` |
 | `2.0.0` | `2.1.0-SNAPSHOT` |
 | `2.3.5` | `2.4.0-SNAPSHOT` |
@@ -849,8 +868,8 @@ The GitHub Actions workflow performs the following steps:
 
 ```yaml
 # 1. Checkout code
-# 2. Set up JDK 21
-# 3. Calculate next SNAPSHOT version (e.g., 1.0.0 → 1.1.0-SNAPSHOT)
+# 2. Set up JDK 17
+# 3. Calculate next SNAPSHOT version (e.g., 1.2.0 → 1.3.0-SNAPSHOT)
 # 4. Set release version in POMs
 # 5. Build and test the project
 # 6. Configure Maven settings for JFrog
@@ -871,7 +890,7 @@ After a successful release, you can use the plugin in your projects:
 <dependency>
     <groupId>io.github.tourem</groupId>
     <artifactId>descriptor-plugin</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
@@ -882,7 +901,7 @@ After a successful release, you can use the plugin in your projects:
         <plugin>
             <groupId>io.github.tourem</groupId>
             <artifactId>descriptor-plugin</artifactId>
-            <version>1.1.0</version>
+            <version>1.2.0</version>
         </plugin>
     </plugins>
 </build>
@@ -890,7 +909,7 @@ After a successful release, you can use the plugin in your projects:
 
 #### Command Line
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate
 ```
 
 ### Configuring Your Maven Settings
