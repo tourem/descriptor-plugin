@@ -34,7 +34,7 @@ Le plugin est disponible dans votre repository Maven local après installation.
 <plugin>
     <groupId>io.github.tourem</groupId>
     <artifactId>descriptor-plugin</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
 </plugin>
 ```
 
@@ -44,40 +44,40 @@ Le plugin est disponible dans votre repository Maven local après installation.
 
 #### Génération simple (fichier à la racine du projet)
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate
 ```
 
 Cela génère `descriptor.json` à la racine de votre projet.
 
 #### Génération avec nom de fichier personnalisé
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.outputFile=deployment-info.json
 ```
 
 #### Génération dans un répertoire spécifique
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.outputDirectory=target \
   -Ddescriptor.outputFile=deployment-descriptor.json
 ```
 
 #### Désactiver le pretty print
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.prettyPrint=false
 ```
 
 #### Générer une archive ZIP
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.format=zip
 ```
 Résultat : `target/monapp-1.0.0-descriptor.zip`
 
 #### Générer une archive TAR.GZ avec classifier personnalisé
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.format=tar.gz \
   -Ddescriptor.classifier=deployment
 ```
@@ -85,7 +85,7 @@ Résultat : `target/monapp-1.0.0-deployment.tar.gz`
 
 #### Générer et attacher au projet pour déploiement
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.format=zip \
   -Ddescriptor.attach=true
 ```
@@ -93,21 +93,21 @@ L'artifact sera déployé vers le repository Maven lors de `mvn deploy`
 
 #### Générer au format YAML
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.exportFormat=yaml
 ```
 Résultat : `target/descriptor.yaml`
 
 #### Générer JSON et YAML
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.exportFormat=both
 ```
 Résultat : `target/descriptor.json` et `target/descriptor.yaml`
 
 #### Générer avec validation et signature numérique
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.validate=true \
   -Ddescriptor.sign=true
 ```
@@ -115,14 +115,14 @@ Résultat : `target/descriptor.json` et `target/descriptor.json.sha256`
 
 #### Générer avec compression
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.compress=true
 ```
 Résultat : `target/descriptor.json` et `target/descriptor.json.gz`
 
 #### Envoyer une notification webhook
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.webhookUrl=https://api.example.com/webhooks/descriptor \
   -Ddescriptor.webhookToken=votre-token-secret
 ```
@@ -130,28 +130,28 @@ Envoie un HTTP POST avec le contenu du descripteur vers l'URL spécifiée
 
 #### Mode dry-run (aperçu sans générer de fichiers)
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.summary=true
 ```
 Affiche un tableau de bord ASCII dans la console avec un aperçu du projet
 
 #### Générer la documentation HTML
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.generateHtml=true
 ```
 Résultat : `target/descriptor.html` - Page HTML lisible pour les équipes non techniques
 
 #### Exécuter un hook post-génération
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.postGenerationHook="./scripts/notifier.sh"
 ```
 Exécute un script/commande local après la génération du descripteur
 
 #### Toutes les fonctionnalités combinées
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate \
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate \
   -Ddescriptor.exportFormat=both \
   -Ddescriptor.validate=true \
   -Ddescriptor.sign=true \
@@ -173,7 +173,7 @@ Vous pouvez configurer le plugin directement dans votre `pom.xml` :
         <plugin>
             <groupId>io.github.tourem</groupId>
             <artifactId>descriptor-plugin</artifactId>
-            <version>1.0.0</version>
+            <version>1.2.0</version>
             <configuration>
                 <!-- Nom du fichier de sortie (défaut: descriptor.json) -->
                 <outputFile>deployment-info.json</outputFile>
@@ -308,7 +308,7 @@ Utilisez le descripteur généré dans vos pipelines CI/CD pour automatiser le d
 ```yaml
 # GitHub Actions example
 - name: Generate deployment descriptor
-  run: mvn io.github.tourem:descriptor-plugin:1.1.0:generate
+  run: mvn io.github.tourem:descriptor-plugin:1.2.0:generate
 
 - name: Deploy using descriptor
   run: |
@@ -323,7 +323,7 @@ Utilisez le descripteur généré dans vos pipelines CI/CD pour automatiser le d
 # deploy.sh
 
 # Générer le descripteur
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate
 
 # Parser et déployer chaque module
 jq -r '.deployableModules[] | select(.springBootExecutable == true) | .artifactId' descriptor.json | while read module; do
@@ -519,7 +519,7 @@ com.example.MicronautFrameworkDetector
 <plugin>
     <groupId>io.github.tourem</groupId>
     <artifactId>descriptor-plugin</artifactId>
-    <version>1.0.0</version>
+    <version>1.2.0</version>
     <dependencies>
         <dependency>
             <groupId>com.example</groupId>

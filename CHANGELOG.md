@@ -104,6 +104,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Git Tags**: Automatic tag creation (e.g., v1.0.0)
 - **GitHub Release**: Automatic creation with Maven coordinates and usage examples
 
+
+## [1.2.0] - 2025-11-11
+
+### Added
+- Java 17 support across the build. Project compiles and runs with JDK 17.
+- README section with HTML output examples (screenshots in `images/`).
+
+### Changed
+- Set `maven-compiler-plugin` and `maven.javadoc.plugin` source/target to 17.
+- Documentation updated to use `1.2.0` in commands and snippets; CI examples use JDK 17.
+
+### Fixed
+- Replaced a Java 21-only pattern matching usage with Java 17-compatible code in `EnvironmentConfigDetector`.
+
 ## [1.1.0] - 2025-11-10
 
 ### Added

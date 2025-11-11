@@ -266,7 +266,7 @@ mvn test -Dtest=EnhancedExecutableDetectorTest
 ### Génération du Descriptor
 ```bash
 # Générer le descriptor JSON
-mvn io.github.tourem:descriptor-plugin:1.1.0:generate
+mvn io.github.tourem:descriptor-plugin:1.2.0:generate
 
 # Voir les informations exécutables
 cat target/descriptor.json | jq '.deployableModules[].executableInfo'
