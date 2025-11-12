@@ -118,6 +118,70 @@ public class GenerateDescriptorMojoArchiveTest {
         assertThat(names).contains("descriptor.json", "descriptor.yaml");
     }
 
+    @Test
+    void zip_contains_json_yaml_and_gz_when_both_and_compress_true() throws Exception {
+        File archive = runMojo("both", false, true, "zip");
+        assertThat(archive).exists();
+
+        Set<String> names = zipEntries(archive);
+        assertThat(names).contains("descriptor.json", "descriptor.yaml", "descriptor.json.gz");
+    }
+
+    @Test
+    void zip_contains_yaml_and_html_when_yaml_and_html_true() throws Exception {
+        File archive = runMojo("yaml", true, false, "zip");
+        assertThat(archive).exists();
+
+        Set<String> names = zipEntries(archive);
+        assertThat(names).contains("descriptor.yaml", "descriptor.html");
+        assertThat(names).doesNotContain("descriptor.json");
+    }
+
+    @Test
+    void zip_contains_json_yaml_and_html_when_both_and_html_true() throws Exception {
+        File archive = runMojo("both", true, false, "zip");
+        assertThat(archive).exists();
+
+        Set<String> names = zipEntries(archive);
+        assertThat(names).contains("descriptor.json", "descriptor.yaml", "descriptor.html");
+    }
+
+    @Test
+    void jar_contains_json_yaml_and_html_when_both_and_html_true() throws Exception {
+        File archive = runMojo("both", true, false, "jar");
+        assertThat(archive).exists();
+
+        Set<String> names = zipEntries(archive);
+        assertThat(names).contains("descriptor.json", "descriptor.yaml", "descriptor.html");
+    }
+
+    @Test
+    void targz_contains_json_and_html_when_json_and_html_true() throws Exception {
+        File archive = runMojo("json", true, false, "tar.gz");
+        assertThat(archive).exists();
+
+        Set<String> names = tarGzEntries(archive);
+        assertThat(names).contains("descriptor.json", "descriptor.html");
+    }
+
+    @Test
+    void targz_contains_json_yaml_and_gz_when_both_and_compress_true() throws Exception {
+        File archive = runMojo("both", false, true, "tar.gz");
+        assertThat(archive).exists();
+
+        Set<String> names = tarGzEntries(archive);
+        assertThat(names).contains("descriptor.json", "descriptor.yaml", "descriptor.json.gz");
+    }
+
+    @Test
+    void tarbz2_contains_json_yaml_and_gz_when_both_and_compress_true() throws Exception {
+        File archive = runMojo("both", false, true, "tar.bz2");
+        assertThat(archive).exists();
+
+        Set<String> names = tarEntriesBz2(archive);
+        assertThat(names).contains("descriptor.json", "descriptor.yaml", "descriptor.json.gz");
+    }
+
 
     private File runMojo(String exportFormat, boolean generateHtml, boolean compress, String archiveFormat) throws Exception {
         GenerateDescriptorMojo mojo = new GenerateDescriptorMojo();
