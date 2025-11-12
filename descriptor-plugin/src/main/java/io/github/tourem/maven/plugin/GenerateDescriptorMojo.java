@@ -237,8 +237,10 @@ public class GenerateDescriptorMojo extends AbstractMojo {
         try {
             getLog().info("Analyzing Maven project: " + project.getName());
 
-            // Get the project base directory
-            File projectDir = project.getBasedir();
+            // Get the project base directory (fallback to current dir for safety in test environments)
+            File projectDir = (project != null && project.getBasedir() != null)
+                    ? project.getBasedir()
+                    : new File(".").getAbsoluteFile();
             getLog().debug("Project directory: " + projectDir.getAbsolutePath());
 
             // Analyze the project
@@ -309,32 +311,46 @@ public class GenerateDescriptorMojo extends AbstractMojo {
             Path primaryOutput = jsonOutputPath != null ? jsonOutputPath : yamlOutputPath;
             getLog().info("  - Output: " + primaryOutput.toAbsolutePath());
 
-            // Generate digital signature if requested
+            // Generate digital signature if requested (for primary output)
             if (sign && primaryOutput != null) {
                 generateSignature(primaryOutput);
             }
 
-            // Compress if requested
+            // Build list of files to archive (all generated artifacts)
+            java.util.List<java.nio.file.Path> filesToArchive = new java.util.ArrayList<>();
+            if (jsonOutputPath != null) {
+                filesToArchive.add(jsonOutputPath);
+            }
+            if (yamlOutputPath != null) {
+                filesToArchive.add(yamlOutputPath);
+            }
+
+            // Compress JSON if requested and include .gz in archive
             if (compress && jsonOutputPath != null) {
                 compressFile(jsonOutputPath);
+                filesToArchive.add(java.nio.file.Paths.get(jsonOutputPath.toString() + ".gz"));
+            }
+
+            // Generate HTML documentation before archiving so it can be included
+            if (generateHtml) {
+                generateHtmlDocumentation(descriptor, outputPath);
+                java.nio.file.Path htmlPath = outputPath.getParent().resolve(
+                    outputPath.getFileName().toString().replace(".json", ".html")
+                );
+                filesToArchive.add(htmlPath);
             }
 
             // Handle archiving and attachment if format is specified
             File finalArtifact = primaryOutput.toFile();
 
             if (format != null && !format.trim().isEmpty()) {
-                finalArtifact = createArchive(primaryOutput);
+                finalArtifact = createArchive(filesToArchive);
                 getLog().info("✓ Archive created: " + finalArtifact.getAbsolutePath());
             }
 
             // Attach artifact to project if requested
             if (attach) {
                 attachArtifact(finalArtifact);
-            }
-
-            // Generate HTML documentation if requested
-            if (generateHtml) {
-                generateHtmlDocumentation(descriptor, outputPath);
             }
 
             // Send webhook notification if configured
@@ -381,14 +397,18 @@ public class GenerateDescriptorMojo extends AbstractMojo {
     }
 
     /**
-     * Creates an archive containing the JSON descriptor file.
+     * Creates an archive containing all generated descriptor files (JSON, YAML, HTML, etc.).
      *
-     * @param jsonFile the JSON file to archive
+     * @param files list of files to include in the archive
      * @return the created archive file
      * @throws IOException if archive creation fails
      */
-    private File createArchive(Path jsonFile) throws IOException {
+    private File createArchive(java.util.List<java.nio.file.Path> files) throws IOException {
         String normalizedFormat = format.trim().toLowerCase();
+
+        if (files == null || files.isEmpty()) {
+            throw new IOException("No files to archive");
+        }
 
         // Determine archive file name
         String archiveBaseName = project.getArtifactId() + "-" + project.getVersion();
@@ -397,24 +417,25 @@ public class GenerateDescriptorMojo extends AbstractMojo {
         }
 
         File archiveFile;
+        java.nio.file.Path parent = files.get(0).getParent();
 
         switch (normalizedFormat) {
             case "zip":
             case "jar":
-                archiveFile = new File(jsonFile.getParent().toFile(), archiveBaseName + ".zip");
-                createZipArchive(jsonFile, archiveFile);
+                archiveFile = new File(parent.toFile(), archiveBaseName + ".zip");
+                createZipArchive(files, archiveFile);
                 break;
 
             case "tar.gz":
             case "tgz":
-                archiveFile = new File(jsonFile.getParent().toFile(), archiveBaseName + ".tar.gz");
-                createTarGzArchive(jsonFile, archiveFile);
+                archiveFile = new File(parent.toFile(), archiveBaseName + ".tar.gz");
+                createTarGzArchive(files, archiveFile);
                 break;
 
             case "tar.bz2":
             case "tbz2":
-                archiveFile = new File(jsonFile.getParent().toFile(), archiveBaseName + ".tar.bz2");
-                createTarBz2Archive(jsonFile, archiveFile);
+                archiveFile = new File(parent.toFile(), archiveBaseName + ".tar.bz2");
+                createTarBz2Archive(files, archiveFile);
                 break;
 
             default:
@@ -429,50 +450,56 @@ public class GenerateDescriptorMojo extends AbstractMojo {
     }
 
     /**
-     * Creates a ZIP archive containing the JSON file.
+     * Creates a ZIP archive containing the provided files.
      */
-    private void createZipArchive(Path jsonFile, File archiveFile) throws IOException {
+    private void createZipArchive(java.util.List<java.nio.file.Path> files, File archiveFile) throws IOException {
         try (FileOutputStream fos = new FileOutputStream(archiveFile);
              ZipOutputStream zos = new ZipOutputStream(fos)) {
 
-            ZipEntry entry = new ZipEntry(jsonFile.getFileName().toString());
-            zos.putNextEntry(entry);
-
-            Files.copy(jsonFile, zos);
-            zos.closeEntry();
+            for (java.nio.file.Path file : files) {
+                if (file == null) continue;
+                ZipEntry entry = new ZipEntry(file.getFileName().toString());
+                zos.putNextEntry(entry);
+                Files.copy(file, zos);
+                zos.closeEntry();
+            }
         }
     }
 
     /**
-     * Creates a TAR.GZ archive containing the JSON file.
+     * Creates a TAR.GZ archive containing the provided files.
      */
-    private void createTarGzArchive(Path jsonFile, File archiveFile) throws IOException {
+    private void createTarGzArchive(java.util.List<java.nio.file.Path> files, File archiveFile) throws IOException {
         try (FileOutputStream fos = new FileOutputStream(archiveFile);
              GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(fos);
              TarArchiveOutputStream taos = new TarArchiveOutputStream(gzos)) {
 
-            TarArchiveEntry entry = new TarArchiveEntry(jsonFile.toFile(), jsonFile.getFileName().toString());
-            taos.putArchiveEntry(entry);
-
-            Files.copy(jsonFile, taos);
-            taos.closeArchiveEntry();
+            for (java.nio.file.Path file : files) {
+                if (file == null) continue;
+                TarArchiveEntry entry = new TarArchiveEntry(file.toFile(), file.getFileName().toString());
+                taos.putArchiveEntry(entry);
+                Files.copy(file, taos);
+                taos.closeArchiveEntry();
+            }
             taos.finish();
         }
     }
 
     /**
-     * Creates a TAR.BZ2 archive containing the JSON file.
+     * Creates a TAR.BZ2 archive containing the provided files.
      */
-    private void createTarBz2Archive(Path jsonFile, File archiveFile) throws IOException {
+    private void createTarBz2Archive(java.util.List<java.nio.file.Path> files, File archiveFile) throws IOException {
         try (FileOutputStream fos = new FileOutputStream(archiveFile);
              BZip2CompressorOutputStream bz2os = new BZip2CompressorOutputStream(fos);
              TarArchiveOutputStream taos = new TarArchiveOutputStream(bz2os)) {
 
-            TarArchiveEntry entry = new TarArchiveEntry(jsonFile.toFile(), jsonFile.getFileName().toString());
-            taos.putArchiveEntry(entry);
-
-            Files.copy(jsonFile, taos);
-            taos.closeArchiveEntry();
+            for (java.nio.file.Path file : files) {
+                if (file == null) continue;
+                TarArchiveEntry entry = new TarArchiveEntry(file.toFile(), file.getFileName().toString());
+                taos.putArchiveEntry(entry);
+                Files.copy(file, taos);
+                taos.closeArchiveEntry();
+            }
             taos.finish();
         }
     }

@@ -91,6 +91,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Apache HttpClient 5 dependency for webhook notifications
 - Eclipse JGit dependency for Git metadata extraction
 
+
+### Fixed
+- Archive creation now includes all generated files (JSON, YAML, HTML, JSON.gz) based on `exportFormat`, `generateHtml`, and `compress` options. Previously only the JSON file was archived.
+- Added unit tests covering ZIP/JAR/TAR.GZ/TAR.BZ2 combinations to prevent regressions.
+
 ### Changed
 - Fixed date serialization to ISO-8601 format (e.g., "2025-11-09T00:47:09.317185") instead of array format
 - Default output directory changed from project root to `${project.build.directory}` (target/)
