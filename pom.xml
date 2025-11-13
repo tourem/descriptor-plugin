@@ -320,6 +320,15 @@
     </plugins>
   </build>
 
+  <!-- Snapshot deployment target (OSSRH) for next development versions -->
+  <distributionManagement>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
+
+
 
 
   <profiles>
