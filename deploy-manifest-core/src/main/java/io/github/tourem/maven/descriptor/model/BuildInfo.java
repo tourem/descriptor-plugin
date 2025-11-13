@@ -51,6 +51,11 @@ public record BuildInfo(
     String ciEventName,
     LocalDateTime buildTimestamp,
     String buildHost,
-    String buildUser
+    String buildUser,
+    MavenRuntimeInfo maven,
+    BuildProperties properties,
+    ProfilesInfo profiles,
+    BuildGoals goals,
+    PluginInfo plugins
 ) {}
 

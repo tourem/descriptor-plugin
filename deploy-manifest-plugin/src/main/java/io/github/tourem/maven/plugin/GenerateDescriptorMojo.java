@@ -277,6 +277,84 @@ public class GenerateDescriptorMojo extends AbstractMojo {
     @Parameter(property = "descriptor.includeOptional", defaultValue = "false")
     private boolean includeOptional;
 
+    // =============================
+    // Licenses Feature Options
+    // =============================
+
+    /** Enable licenses collection (disabled by default). */
+    @Parameter(property = "descriptor.includeLicenses", defaultValue = "false")
+    private boolean includeLicenses;
+
+    /** Generate warnings for incompatible/unknown licenses. */
+    @Parameter(property = "descriptor.licenseWarnings", defaultValue = "false")
+    private boolean licenseWarnings;
+
+    /** Comma-separated list of incompatible licenses (e.g., GPL-3.0,AGPL-3.0,SSPL). */
+    @Parameter(property = "descriptor.incompatibleLicenses", defaultValue = "GPL-3.0,AGPL-3.0,SSPL")
+    private String incompatibleLicenses;
+
+    /** Include transitive licenses (future use). */
+    @Parameter(property = "descriptor.includeTransitiveLicenses", defaultValue = "true")
+    private boolean includeTransitiveLicenses;
+
+    // =============================
+    // Properties Feature Options
+    // =============================
+
+    /** Enable properties collection (disabled by default). */
+    @Parameter(property = "descriptor.includeProperties", defaultValue = "false")
+    private boolean includeProperties;
+
+    /** Include Java/system properties. */
+    @Parameter(property = "descriptor.includeSystemProperties", defaultValue = "true")
+    private boolean includeSystemProperties;
+
+    /** Include environment variables (use with care). */
+    @Parameter(property = "descriptor.includeEnvironmentVariables", defaultValue = "false")
+    private boolean includeEnvironmentVariables;
+
+    /** Filter sensitive properties by key name (password, secret, token, ...). */
+    @Parameter(property = "descriptor.filterSensitiveProperties", defaultValue = "true")
+    private boolean filterSensitiveProperties;
+
+    /** Mask sensitive values instead of dropping them. */
+    @Parameter(property = "descriptor.maskSensitiveValues", defaultValue = "true")
+    private boolean maskSensitiveValues;
+
+    /** Comma-separated list of extra sensitive key patterns (case-insensitive). */
+    @Parameter(property = "descriptor.propertyExclusions", defaultValue = "password,secret,token,apikey,api-key,api_key,credentials,auth,key")
+    private String propertyExclusions;
+
+    // =============================
+    // Plugins Feature Options
+    // =============================
+
+    /** Enable plugins collection (disabled by default). */
+    @Parameter(property = "descriptor.includePlugins", defaultValue = "false")
+    private boolean includePlugins;
+
+    /** Include plugin configuration blocks (sanitized). */
+    @Parameter(property = "descriptor.includePluginConfiguration", defaultValue = "true")
+    private boolean includePluginConfiguration;
+
+    /** Include pluginManagement definitions. */
+    @Parameter(property = "descriptor.includePluginManagement", defaultValue = "true")
+    private boolean includePluginManagement;
+
+    /** Check newer plugin versions (network). */
+    @Parameter(property = "descriptor.checkPluginUpdates", defaultValue = "false")
+    private boolean checkPluginUpdates;
+
+    /** Mask sensitive config values for plugins. */
+    @Parameter(property = "descriptor.filterSensitivePluginConfig", defaultValue = "true")
+    private boolean filterSensitivePluginConfig;
+
+    /** Timeout in ms for update checks. */
+    @Parameter(property = "descriptor.pluginUpdateTimeoutMillis", defaultValue = "2000")
+    private int pluginUpdateTimeoutMillis;
+
+
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         if (skip) {
@@ -314,8 +392,74 @@ public class GenerateDescriptorMojo extends AbstractMojo {
             }
             dtOptionsBuilder.scopes(scopeSet);
 
-            MavenProjectAnalyzer analyzer = new MavenProjectAnalyzer(dtOptionsBuilder.build());
+            // Licenses options
+            java.util.Set<String> licIncompatSet = new java.util.HashSet<>();
+            if (incompatibleLicenses != null && !incompatibleLicenses.isBlank()) {
+                for (String s : incompatibleLicenses.split(",")) {
+                    if (s != null && !s.isBlank()) licIncompatSet.add(s.trim());
+                }
+            }
+            var licOpts = io.github.tourem.maven.descriptor.model.LicenseOptions.builder()
+                .include(includeLicenses)
+                .licenseWarnings(licenseWarnings)
+                .includeTransitiveLicenses(includeTransitiveLicenses)
+                .incompatibleLicenses(licIncompatSet)
+                .build();
+
+            // Build property options for core analyzer
+            java.util.Set<String> exclusions = new java.util.HashSet<>();
+            if (propertyExclusions != null && !propertyExclusions.isBlank()) {
+                for (String t : propertyExclusions.split(",")) {
+                    if (t != null && !t.isBlank()) exclusions.add(t.trim());
+                }
+            }
+            io.github.tourem.maven.descriptor.model.PropertyOptions propOpts = io.github.tourem.maven.descriptor.model.PropertyOptions.builder()
+                    .include(includeProperties)
+                    .includeSystemProperties(includeSystemProperties)
+                    .includeEnvironmentVariables(includeEnvironmentVariables)
+                    .filterSensitiveProperties(filterSensitiveProperties)
+                    .maskSensitiveValues(maskSensitiveValues)
+                    .propertyExclusions(exclusions)
+                    .build();
+
+            // Plugins options
+            io.github.tourem.maven.descriptor.model.PluginOptions pluginOpts = io.github.tourem.maven.descriptor.model.PluginOptions.builder()
+                    .include(includePlugins)
+                    .includePluginConfiguration(includePluginConfiguration)
+                    .includePluginManagement(includePluginManagement)
+                    .checkPluginUpdates(checkPluginUpdates)
+                    .filterSensitivePluginConfig(filterSensitivePluginConfig)
+                    .updateCheckTimeoutMillis(pluginUpdateTimeoutMillis)
+                    .build();
+            // Ensure core uses the exact local repository Maven is using
+            try {
+                if (session != null && session.getLocalRepository() != null
+                        && session.getLocalRepository().getBasedir() != null
+                        && !session.getLocalRepository().getBasedir().isBlank()) {
+                    System.setProperty("maven.repo.local", session.getLocalRepository().getBasedir());
+                }
+            } catch (Throwable t) {
+                getLog().debug("Unable to set maven.repo.local from session: " + t.getMessage());
+            }
+
+
+            // Pre-resolve dependencies to ensure POMs are present for license collection
+            if (includeLicenses) {
+                try {
+                    preResolveDependenciesForLicensesInSession();
+                } catch (Exception e) {
+                    getLog().debug("Pre-resolving dependencies for license collection failed: " + e.getMessage(), e);
+                }
+            }
+
+
+            MavenProjectAnalyzer analyzer = new MavenProjectAnalyzer(dtOptionsBuilder.build(), licOpts, propOpts, pluginOpts);
             ProjectDescriptor descriptor = analyzer.analyzeProject(projectDir.toPath());
+
+            // Optionally enrich BuildInfo with properties, profiles, goals and Maven runtime
+            if (includeProperties) {
+                descriptor = enrichBuildInfoWithProperties(descriptor);
+            }
 
             // Validate descriptor if requested
             if (validate) {
@@ -1003,6 +1147,7 @@ public class GenerateDescriptorMojo extends AbstractMojo {
         html.append("        <div class=\"subtitle\">Deployment Descriptor</div>\n");
         html.append("        <div class=\"timestamp\">📅 Generated: ").append(descriptor.generatedAt()).append("</div>\n");
         html.append("      </div>\n");
+
         html.append("      <button class=\"theme-toggle\" onclick=\"toggleTheme()\" title=\"Toggle Dark/Light Mode\">\n");
         html.append("        <span class=\"theme-icon\">🌙</span>\n");
         html.append("      </button>\n");
@@ -1038,6 +1183,8 @@ public class GenerateDescriptorMojo extends AbstractMojo {
         html.append("      <button class=\"tab\" onclick=\"showTab(this, 'dependencies')\">🧩 Dependencies</button>\n");
 
         html.append("      <button class=\"tab\" onclick=\"showTab(this, 'environments')\">🌍 Environments</button>\n");
+        html.append("      <button class=\"tab\" onclick=\"showTab(this, 'compliance')\">⚖️ Compliance</button>\n");
+
         html.append("      <button class=\"tab\" onclick=\"showTab(this, 'assemblies')\">📚 Assemblies</button>\n");
         html.append("    </div>\n");
 
@@ -1196,6 +1343,225 @@ public class GenerateDescriptorMojo extends AbstractMojo {
                     html.append("        </div>\n");
                 }
                 html.append("      </div>\n");
+            // Maven Runtime
+            if (buildInfo.maven() != null) {
+                var mvn = buildInfo.maven();
+                html.append("      <div class=\"section-header\">🧰 Maven Runtime</div>\n");
+                html.append("      <div class=\"info-grid\">\n");
+                if (mvn.getVersion() != null) {
+                    html.append("        <div class=\"info-item\">\n");
+                    html.append("          <div class=\"info-label\">Maven Version</div>\n");
+                    html.append("          <div class=\"info-value\"><code>").append(escapeHtml(mvn.getVersion())).append("</code></div>\n");
+                    html.append("        </div>\n");
+                }
+                if (mvn.getHome() != null) {
+                    html.append("        <div class=\"info-item\">\n");
+                    html.append("          <div class=\"info-label\">Maven Home</div>\n");
+                    html.append("          <div class=\"info-value\">🏠 ").append(escapeHtml(mvn.getHome())).append("</div>\n");
+                    html.append("        </div>\n");
+                }
+                html.append("      </div>\n");
+            }
+
+            // Executed Goals
+            if (buildInfo.goals() != null && (buildInfo.goals().getDefaultGoal() != null || (buildInfo.goals().getExecuted() != null && !buildInfo.goals().getExecuted().isEmpty()))) {
+                var goals = buildInfo.goals();
+                html.append("      <div class=\"section-header\">🎯 Maven Goals</div>\n");
+                html.append("      <div class=\"info-grid\">\n");
+                if (goals.getDefaultGoal() != null) {
+                    html.append("        <div class=\"info-item\">\n");
+                    html.append("          <div class=\"info-label\">Default Goal</div>\n");
+                    html.append("          <div class=\"info-value\"><code>").append(escapeHtml(goals.getDefaultGoal())).append("</code></div>\n");
+                    html.append("        </div>\n");
+                }
+                if (goals.getExecuted() != null && !goals.getExecuted().isEmpty()) {
+                    html.append("        <div class=\"info-item\" style=\"grid-column: 1 / -1;\">\n");
+                    html.append("          <div class=\"info-label\">Executed</div>\n");
+                    html.append("          <div class=\"info-value\">");
+                    for (int i = 0; i < goals.getExecuted().size(); i++) {
+                        if (i > 0) html.append(", ");
+                        html.append("<span class=\\\"badge\\\">")
+                            .append(escapeHtml(String.valueOf(goals.getExecuted().get(i))))
+                            .append("</span>");
+                    }
+                    html.append("</div>\n");
+                    html.append("        </div>\n");
+                }
+                html.append("      </div>\n");
+            }
+
+            // Build Properties
+            if (buildInfo.properties() != null) {
+                var props = buildInfo.properties();
+                html.append("      <div class=\"section-header\">⚙️ Build Properties</div>\n");
+                html.append("      <div style=\"margin:6px 0 12px 0;\">\n");
+                html.append("        <input id=\"prop-search\" type=\"text\" placeholder=\"Search property key or value...\" style=\"padding:8px; width:320px; margin-right:8px;\">\n");
+                if (props.getMaskedCount() != null && props.getMaskedCount() > 0) {
+                    html.append("        <span style=\"color:#666;\">(").append(String.valueOf(props.getMaskedCount())).append(" value(s) masked)</span>\n");
+                }
+                html.append("      </div>\n");
+
+                // helper to render a table for a map
+                java.util.function.BiConsumer<String, java.util.Map<String,String>> renderTable = (title, map) -> {
+                    if (map == null || map.isEmpty()) return;
+                    html.append("      <details open style=\"margin-bottom:10px;\"><summary style=\"cursor:pointer;\"><strong>").append(escapeHtml(title)).append("</strong> (").append(String.valueOf(map.size())).append(")</summary>\n");
+                    html.append("      <div style=\"overflow:auto;\">\n");
+                    html.append("        <table class=\"data-table\" style=\"min-width:520px;\">\n");
+                    html.append("          <thead><tr><th style=\"width:35%\">Key</th><th>Value</th></tr></thead>\n");
+                    html.append("          <tbody>\n");
+                    java.util.List<java.util.Map.Entry<String,String>> entries = new java.util.ArrayList<>(map.entrySet());
+                    entries.sort(java.util.Map.Entry.comparingByKey());
+                    for (var e : entries) {
+                        String k = e.getKey(); String v = e.getValue();
+                        html.append("            <tr class=\"prop-row\" data-key=\"").append(escapeHtml(k)).append("\" data-val=\"").append(escapeHtml(String.valueOf(v))).append("\">\n");
+                        html.append("              <td><code>").append(escapeHtml(k)).append("</code></td>\n");
+                        html.append("              <td><code>").append(escapeHtml(String.valueOf(v))).append("</code></td>\n");
+                        html.append("            </tr>\n");
+                    }
+                    html.append("          </tbody>\n");
+                    html.append("        </table>\n");
+                    html.append("      </div>\n");
+                    html.append("      </details>\n");
+                };
+
+                renderTable.accept("Project Properties", props.getProject());
+
+                renderTable.accept("Maven Properties", props.getMaven());
+                renderTable.accept("Custom Properties", props.getCustom());
+                renderTable.accept("System Properties", props.getSystem());
+                renderTable.accept("Environment Variables", props.getEnvironment());
+
+                html.append("      <script>(function(){ var s=document.getElementById('prop-search'); if(!s) return; function apply(){ var q=s.value.toLowerCase(); document.querySelectorAll('tr.prop-row').forEach(function(tr){ var k=tr.getAttribute('data-key')||''; var v=tr.getAttribute('data-val')||''; tr.style.display = (!q || k.toLowerCase().includes(q) || v.toLowerCase().includes(q)) ? '' : 'none'; }); } s.addEventListener('input', apply); })();</script>\n");
+            }
+
+            // Profiles
+            if (buildInfo.profiles() != null) {
+                var pf = buildInfo.profiles();
+                html.append("      <div class=\"section-header\">🧩 Maven Profiles</div>\n");
+                html.append("      <div class=\"info-grid\">\n");
+                if (pf.getDefaultProfile() != null) {
+                    html.append("        <div class=\"info-item\">\n");
+                    html.append("          <div class=\"info-label\">Default Profile</div>\n");
+                    html.append("          <div class=\"info-value\"><span class=\"badge\">").append(escapeHtml(pf.getDefaultProfile())).append("</span></div>\n");
+                    html.append("        </div>\n");
+                }
+                if (pf.getActive() != null && !pf.getActive().isEmpty()) {
+                    html.append("        <div class=\"info-item\" style=\"grid-column: 1 / -1;\">\n");
+                    html.append("          <div class=\"info-label\">Active Profiles</div>\n");
+                    html.append("          <div class=\"info-value\">");
+                    for (int i = 0; i < pf.getActive().size(); i++) {
+                        if (i > 0) html.append(" ");
+                        html.append("<span class=\\\"badge\\\">")
+                            .append(escapeHtml(String.valueOf(pf.getActive().get(i))))
+                            .append("</span>");
+                    }
+                    html.append("</div>\n");
+                    html.append("        </div>\n");
+                }
+                if (pf.getAvailable() != null && !pf.getAvailable().isEmpty()) {
+                    html.append("        <div class=\"info-item\" style=\"grid-column: 1 / -1;\">\n");
+                    html.append("          <div class=\"info-label\">Available Profiles</div>\n");
+                    html.append("          <div class=\"info-value\"><code>").append(escapeHtml(String.join(", ", pf.getAvailable()))).append("</code></div>\n");
+                    html.append("        </div>\n");
+                }
+                html.append("      </div>\n");
+            }
+
+            // Build Plugins (aggregated)
+            if (buildInfo.plugins() != null) {
+                var pinfo = buildInfo.plugins();
+                html.append("      <div class=\"section-header\">🔧 Build Plugins</div>\n");
+                if (pinfo.getSummary() != null) {
+                    html.append("      <div style=\"display:flex; gap:8px; margin:6px 0 12px 0; flex-wrap: wrap;\">\n");
+                    var s = pinfo.getSummary();
+                    html.append("        <span class=\"badge\">total: ").append(String.valueOf(s.getTotal())).append("</span>\n");
+                    if (s.getWithConfiguration() != null) html.append("        <span class=\"badge badge-jar\">config: ").append(String.valueOf(s.getWithConfiguration())).append("</span>\n");
+                    if (s.getFromManagement() != null) html.append("        <span class=\"badge badge-scope-compile\">mgmt: ").append(String.valueOf(s.getFromManagement())).append("</span>\n");
+                    if (s.getOutdated() != null && s.getOutdated() > 0) html.append("        <span class=\"badge badge-scope-runtime\">outdated: ").append(String.valueOf(s.getOutdated())).append("</span>\n");
+                    html.append("      </div>\n");
+                }
+                if (pinfo.getList() != null && !pinfo.getList().isEmpty()) {
+                    html.append("      <div class=\"table-container\">\n");
+                    html.append("        <table>\n");
+                    html.append("          <thead><tr><th>Plugin</th><th>Version</th><th>Phase</th><th>Goals</th><th>Source</th></tr></thead>\n");
+                    html.append("          <tbody>\n");
+                    for (var pd : pinfo.getList()) {
+                        html.append("            <tr>\n");
+                        String coord = (pd.getGroupId() != null ? pd.getGroupId() : "") + ":" + (pd.getArtifactId() != null ? pd.getArtifactId() : "");
+                        html.append("              <td><code>").append(escapeHtml(coord)).append("</code>");
+                        if (pd.getConfiguration() != null) {
+                            String cfg = String.valueOf(pd.getConfiguration());
+                            html.append("<details style=\"margin-top:4px;\"><summary style=\"cursor:pointer;\">config</summary><pre class=\"code-block\">")
+                                .append(escapeHtml(cfg))
+                                .append("</pre></details>");
+                        }
+                        html.append("</td>\n");
+                        html.append("              <td>");
+                        if (pd.getOutdated() != null && pd.getOutdated().getLatest() != null && pd.getVersion() != null && !pd.getVersion().equals(pd.getOutdated().getLatest())) {
+                            html.append("<span class=\"badge badge-fail\">")
+                                .append(escapeHtml(pd.getVersion()))
+                                .append(" → ")
+                                .append(escapeHtml(pd.getOutdated().getLatest()))
+                                .append("</span>");
+                        } else {
+                            html.append(pd.getVersion() == null ? "" : "<code>" + escapeHtml(pd.getVersion()) + "</code>");
+                        }
+                        html.append("</td>\n");
+                        html.append("              <td>").append(pd.getPhase() == null ? "" : "<span class=\\\"badge\\\">" + escapeHtml(pd.getPhase()) + "</span>").append("</td>\n");
+                        html.append("              <td>");
+                        if (pd.getGoals() != null && !pd.getGoals().isEmpty()) {
+                            for (int i = 0; i < pd.getGoals().size(); i++) {
+                                if (i > 0) html.append(" ");
+                                html.append("<span class=\\\"badge\\\">")
+                                    .append(escapeHtml(String.valueOf(pd.getGoals().get(i))))
+                                    .append("</span>");
+                            }
+                        }
+                        html.append("</td>\n");
+                        String source = pd.getSource();
+                        if (Boolean.TRUE.equals(pd.getInherited())) source = (source == null ? "" : source + ", ") + "inherited";
+                        html.append("              <td>").append(source == null ? "" : escapeHtml(source)).append("</td>\n");
+                        html.append("            </tr>\n");
+                    }
+                    html.append("          </tbody>\n");
+                    html.append("        </table>\n");
+                    html.append("      </div>\n");
+                } else {
+                    html.append("      <div class=\"empty-state\"><p>No build plugins found.</p></div>\n");
+                }
+
+                // Plugin Management section
+                if (pinfo.getManagement() != null && !pinfo.getManagement().isEmpty()) {
+                    html.append("      <details style=\"margin-top:12px;\"><summary style=\"cursor:pointer;\"><strong>Plugin Management</strong> (")
+                        .append(String.valueOf(pinfo.getManagement().size()))
+                        .append(")</summary>\n");
+                    html.append("      <div class=\"table-container\">\n");
+                    html.append("        <table>\n");
+                    html.append("          <thead><tr><th>Plugin</th><th>Version</th><th>Used in Build</th></tr></thead>\n");
+                    html.append("          <tbody>\n");
+                    for (var pm : pinfo.getManagement()) {
+                        String coord = (pm.getGroupId() != null ? pm.getGroupId() : "") + ":" + (pm.getArtifactId() != null ? pm.getArtifactId() : "");
+                        html.append("            <tr>\n");
+                        html.append("              <td><code>").append(escapeHtml(coord)).append("</code></td>\n");
+                        html.append("              <td>")
+                            .append(pm.getVersion() == null ? "" : "<code>" + escapeHtml(pm.getVersion()) + "</code>")
+                            .append("</td>\n");
+                        html.append("              <td>");
+                        if (Boolean.TRUE.equals(pm.getUsedInBuild())) {
+                            html.append("<span class=\"badge badge-success\">✓ used</span>");
+                        } else {
+                            html.append("<span class=\"badge\">—</span>");
+                        }
+                        html.append("</td>\n");
+                        html.append("            </tr>\n");
+                    }
+                    html.append("          </tbody>\n");
+                    html.append("        </table>\n");
+                    html.append("      </div>\n");
+                    html.append("      </details>\n");
+                }
+            }
+
             }
         } else {
             html.append("      <div class=\"empty-state\">\n");
@@ -1703,6 +2069,163 @@ d af f CSV</button>\\n");
         html.append("    </div>\n");
 
 
+        // Tab 4: Compliance (Licenses)
+        html.append("    <div id=\"compliance\" class=\"tab-content\">\n");
+        if (descriptor.deployableModules() != null && !descriptor.deployableModules().isEmpty()) {
+            boolean hasLic = descriptor.deployableModules().stream()
+                .anyMatch(m -> m.getLicenses() != null);
+            if (hasLic) {
+                descriptor.deployableModules().forEach(module -> {
+                    var lic = module.getLicenses();
+                    if (lic != null) {
+                        String moduleId = module.getArtifactId().replaceAll("[^A-Za-z0-9_-]", "_");
+                        html.append("      <div class=\"module-card\" id=\"comp-card-").append(moduleId).append("\">\n");
+                        html.append("        <div class=\"module-header\">\n");
+                        html.append("          <div class=\"module-title\">");
+                        html.append("⚖️ Compliance — ").append(escapeHtml(module.getArtifactId()));
+                        html.append("</div>\n");
+                        html.append("        </div>\n");
+                        // Controls: Expand/Collapse all for this module's compliance section
+                        html.append("        <div class=\"compliance-controls\" style=\"margin:8px 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap;\">\n");
+                        html.append("          <button type=\"button\" onclick=\"toggleCompliance('").append(moduleId).append("', true)\" style=\"padding:6px 10px; border-radius:6px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer;\">Expand all</button>\n");
+                        html.append("          <button type=\"button\" onclick=\"toggleCompliance('").append(moduleId).append("', false)\" style=\"padding:6px 10px; border-radius:6px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer;\">Collapse all</button>\n");
+                        html.append("          <input type=\"search\" id=\"comp-filter-").append(moduleId).append("\" oninput=\"filterCompliance('").append(moduleId).append("')\" placeholder=\"Filter by groupId or artifactId\" style=\"padding:6px 10px; border-radius:6px; border:1px solid #e0e0e0; min-width:260px;\" />\n");
+                        html.append("        </div>\n");
+
+                        // Summary
+                        var sum = lic.getSummary();
+                        if (sum != null) {
+                            html.append("        <div class=\"info-grid\">\n");
+                            html.append("          <div class=\"info-item\"><div class=\"info-label\">Total</div><div class=\"info-value\"><strong>")
+                               .append(sum.getTotal()).append("</strong></div></div>\n");
+                            html.append("          <div class=\"info-item\"><div class=\"info-label\">Identified</div><div class=\"info-value\"><strong>")
+                               .append(sum.getIdentified()).append("</strong></div></div>\n");
+                            html.append("          <div class=\"info-item\"><div class=\"info-label\">Unknown</div><div class=\"info-value\"><strong>")
+                               .append(sum.getUnknown()).append("</strong></div></div>\n");
+                            html.append("        </div>\n");
+
+                                // Distribution + Filters
+                                if (sum != null && sum.getByType() != null && !sum.getByType().isEmpty()) {
+                                    String modId = String.valueOf(module.getArtifactId());
+                                    html.append("        <div style=\"display:flex;gap:24px;align-items:flex-start;margin:6px 0 14px 0;\">\n");
+                                    html.append("          <div>\n");
+                                    html.append("            <canvas id=\"lic-pie-").append(escapeHtml(modId)).append("\" width=\"220\" height=\"220\" style=\"border-radius:10px\"></canvas>\n");
+                                    html.append("          </div>\n");
+                                    html.append("          <div>\n");
+                                    html.append("            <div style=\"display:flex;gap:8px;align-items:center;margin-bottom:10px;\">\n");
+                                    html.append("              <input type=\"text\" id=\"lic-search-").append(escapeHtml(modId)).append("\" placeholder=\"Search artifact or license\" />\n");
+                                    html.append("              <select id=\"lic-type-").append(escapeHtml(modId)).append("\">\n");
+                                    html.append("                <option value=\"\">All licenses</option>\n");
+                                    for (var e : sum.getByType().entrySet()) {
+                                        html.append("                <option value=\"").append(escapeHtml(String.valueOf(e.getKey()))).append("\">")
+                                            .append(escapeHtml(String.valueOf(e.getKey()))).append(" (").append(String.valueOf(e.getValue())).append(")</option>\n");
+                                    }
+                                    html.append("              </select>\n");
+                                    html.append("            </div>\n");
+                                    html.append("            <div class=\"legend\">\n");
+                                    for (var e : sum.getByType().entrySet()) {
+                                        html.append("              <div style=\"display:flex;align-items:center;gap:6px;margin:2px 0;\"><span class=\"swatch\" data-lic=\"")
+                                            .append(escapeHtml(String.valueOf(e.getKey()))).append("\" style=\"display:inline-block;width:12px;height:12px;border-radius:2px;\"></span> ")
+                                            .append(escapeHtml(String.valueOf(e.getKey()))).append(" <small>(").append(String.valueOf(e.getValue())).append(")</small></div>\n");
+                                    }
+                                    html.append("            </div>\n");
+                                    html.append("          </div>\n");
+                                    html.append("        </div>\n");
+
+                                    // inline JS for pie + filters + sortTable helper
+                                    StringBuilder labels = new StringBuilder();
+                                    StringBuilder values = new StringBuilder();
+                                    int idx = 0; int size = sum.getByType().size();
+                                    for (var e : sum.getByType().entrySet()) {
+                                        labels.append('\"').append(e.getKey()).append('\"');
+                                        values.append(e.getValue());
+                                        if (++idx < size) { labels.append(","); values.append(","); }
+                                    }
+                                    html.append("<script>(function(){\n");
+                                    html.append("var labels = [").append(labels).append("]; var values=[").append(values).append("];\n");
+                                    html.append("var id='" ).append(escapeHtml(modId)).append("';\n");
+                                    html.append("var canvas=document.getElementById('lic-pie-'+id); if(canvas){var ctx=canvas.getContext('2d');var total=values.reduce((a,b)=>a+b,0);var start=0;var cx=110,cy=110,r=100;var colors=labels.map((_,i)=>`hsl(${(i*53)%360},70%,55%)`);values.forEach((v,i)=>{var ang=2*Math.PI*(v/Math.max(total,1));ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,start,start+ang);ctx.closePath();ctx.fillStyle=colors[i];ctx.fill();start+=ang;});document.querySelectorAll('.swatch[data-lic]').forEach((el,i)=>{el.style.backgroundColor=colors[i]||'#888';});}\n");
+                                    html.append("function filter(){var q=(document.getElementById('lic-search-'+id)||{}).value||'';q=q.toLowerCase();var t=(document.getElementById('lic-type-'+id)||{}).value||'';var table=document.getElementById('lic-table-'+id);if(!table) return;Array.from(table.querySelectorAll('tbody tr')).forEach(tr=>{var lic=(tr.getAttribute('data-license')||'');var art=(tr.getAttribute('data-artifact')||'');var okT=!t||lic.includes(t);var okQ=lic.toLowerCase().includes(q)||art.toLowerCase().includes(q);tr.style.display=(okT&&okQ)?'':'none';});}\n");
+                                    html.append("var s=document.getElementById('lic-search-'+id); if(s){s.addEventListener('input', filter);} var sel=document.getElementById('lic-type-'+id); if(sel){sel.addEventListener('change', filter);}\n");
+                                    html.append("window.sortTable=function(tableId,col){var table=document.getElementById(tableId);if(!table)return;var rows=Array.from(table.querySelectorAll('tbody tr'));var asc=table.getAttribute('data-sort')!=='asc';rows.sort((a,b)=>{var ta=a.children[col].innerText.toLowerCase();var tb=b.children[col].innerText.toLowerCase();return asc?ta.localeCompare(tb):tb.localeCompare(ta);});var tbody=table.querySelector('tbody');rows.forEach(r=>tbody.appendChild(r));table.setAttribute('data-sort',asc?'asc':'desc');}\n");
+                                    html.append("})();</script>\n");
+                                }
+
+                        }
+
+                        // Warnings
+                        if (lic.getWarnings() != null && !lic.getWarnings().isEmpty()) {
+                            html.append("        <div class=\"table-container\">\n");
+                            html.append("          <details class=\"collapsible\">\n");
+                            html.append("            <summary>⚠️ Warnings (").append(lic.getWarnings().size()).append(")</summary>\n");
+                            html.append("            <div style=\"margin-top:8px\">\n");
+                            html.append("              <table id=\"warn-table-").append(moduleId).append("\">\n");
+                            html.append("                <tr><th>Severity</th><th>Artifact</th><th>License</th><th>Reason</th><th>Recommendation</th></tr>\n");
+                            for (var w : lic.getWarnings()) {
+                                html.append("                <tr>\n");
+                                html.append("                  <td>").append(escapeHtml(String.valueOf(w.getSeverity()))).append("</td>\n");
+                                html.append("                  <td>").append(escapeHtml(String.valueOf(w.getArtifact()))).append("</td>\n");
+                                html.append("                  <td>").append(escapeHtml(String.valueOf(w.getLicense()))).append("</td>\n");
+                                html.append("                  <td>").append(escapeHtml(String.valueOf(w.getReason()))).append("</td>\n");
+                                html.append("                  <td>").append(escapeHtml(String.valueOf(w.getRecommendation()))).append("</td>\n");
+                                html.append("                </tr>\n");
+                            }
+                            html.append("              </table>\n");
+                            html.append("            </div>\n");
+                            html.append("          </details>\n");
+                            html.append("        </div>\n");
+                        }
+
+                        // Details
+                        if (lic.getDetails() != null && !lic.getDetails().isEmpty()) {
+                            html.append("        <div class=\"table-container\">\n");
+                            html.append("          <details class=\"collapsible\">\n");
+                            html.append("            <summary>📄 License Details (").append(lic.getDetails().size()).append(")</summary>\n");
+                            html.append("            <div style=\"margin-top:8px\">\n");
+                            html.append("              <table id=\"lic-table-").append(escapeHtml(String.valueOf(module.getArtifactId()))).append("\">\n");
+                            html.append("            <thead><tr><th>Group</th><th onclick=\"sortTable('lic-table-").append(escapeHtml(String.valueOf(module.getArtifactId()))).append("',1)\">Artifact</th><th>Version</th><th>Scope</th><th onclick=\"sortTable('lic-table-").append(escapeHtml(String.valueOf(module.getArtifactId()))).append("',4)\">License</th><th>URL</th><th>Depth</th></tr></thead>\n");
+                            html.append("            <tbody>\n");
+                            for (var d : lic.getDetails()) {
+                                html.append("            <tr data-license=\"").append(escapeHtml(String.valueOf(d.getLicense()))).append("\" data-artifact=\"").append(escapeHtml(String.valueOf(d.getArtifactId()))).append("\">\n");
+                                html.append("              <td>").append(escapeHtml(String.valueOf(d.getGroupId()))).append("</td>\n");
+                                html.append("              <td><strong>").append(escapeHtml(String.valueOf(d.getArtifactId()))).append("</strong></td>\n");
+                                html.append("              <td><code>").append(escapeHtml(String.valueOf(d.getVersion()))).append("</code></td>\n");
+                                html.append("              <td>").append(escapeHtml(String.valueOf(d.getScope()))).append("</td>\n");
+                                html.append("              <td>").append(escapeHtml(String.valueOf(d.getLicense()))).append("</td>\n");
+                                String url = d.getLicenseUrl()==null?"":d.getLicenseUrl();
+                                if (url.isBlank()) {
+                                    html.append("              <td>-</td>\n");
+                                } else {
+                                    html.append("              <td><a href=\"").append(escapeHtml(url)).append("\" target=\"_blank\">link</a></td>\n");
+                                }
+                                html.append("              <td>").append(String.valueOf(d.getDepth()==null?1:d.getDepth())).append("</td>\n");
+                                html.append("            </tr>\n");
+                            }
+                            html.append("            </tbody>\n");
+
+                            html.append("              </table>\n");
+                            html.append("            </div>\n");
+                            html.append("          </details>\n");
+                            html.append("        </div>\n");
+                        }
+                        html.append("      </div>\n");
+                    }
+                });
+            } else {
+                html.append("      <div class=\"empty-state\">\n");
+                html.append("        <div class=\"empty-state-icon\">⚖️</div>\n");
+                html.append("        <p>No license information collected. Enable with -Ddescriptor.includeLicenses=true</p>\n");
+                html.append("      </div>\n");
+            }
+        } else {
+            html.append("      <div class=\"empty-state\">\n");
+            html.append("        <div class=\"empty-state-icon\">📦</div>\n");
+            html.append("        <p>No deployable modules found</p>\n");
+            html.append("      </div>\n");
+        }
+        html.append("    </div>\n");
+
+
         // Tab 4: Environments
         html.append("    <div id=\"environments\" class=\"tab-content\">\n");
         if (descriptor.deployableModules() != null && !descriptor.deployableModules().isEmpty()) {
@@ -1847,6 +2370,9 @@ d af f CSV</button>\\n");
     html.append("    function expandAll(modId){ document.querySelectorAll('#dep-tree-'+modId+' .dep-node.has-children').forEach(li=>{ li.classList.remove('collapsed'); const t=li.querySelector(':scope > .tree-toggle'); if(t) t.textContent='\u25be'; }); }\n");
     html.append("    function collapseAll(modId){ document.querySelectorAll('#dep-tree-'+modId+' .dep-node.has-children').forEach(li=>{ li.classList.add('collapsed'); const t=li.querySelector(':scope > .tree-toggle'); if(t) t.textContent='\u25b8'; }); }\n");
     html.append("    function initTreeCollapse(modId){ document.querySelectorAll('#dep-tree-'+modId+' .dep-node.has-children').forEach(li=>{ const depth=parseInt(li.dataset.depth||'1',10); const t=li.querySelector(':scope > .tree-toggle'); if(depth>1){ li.classList.add('collapsed'); if(t) t.textContent='\u25b8'; } else { if(t) t.textContent='\u25be'; } }); }\n");
+
+    html.append("    function toggleCompliance(modId, open){ const root=document.getElementById('comp-card-'+modId); const list=(root?root.querySelectorAll('details.collapsible'):document.querySelectorAll('#compliance details.collapsible')); list.forEach(d=>d.open=!!open); }\n");
+    html.append("    function filterCompliance(modId){ const root=document.getElementById('comp-card-'+modId); if(!root) return; const input=document.getElementById('comp-filter-'+modId); const term=(input&&input.value?input.value:'').trim().toLowerCase(); const matches=(s)=>!term||(s&&s.toLowerCase().includes(term)); const w=root.querySelector('#warn-table-'+modId); if(w){ w.querySelectorAll('tbody tr').forEach(tr=>{ const tds=tr.querySelectorAll('td'); const art=(tds&&tds[1])?tds[1].textContent:''; tr.style.display=matches(art)?'':'none'; }); } root.querySelectorAll('table[id^=\"lic-table-\"] tbody tr').forEach(tr=>{ const g=tr.querySelector('td:nth-child(1)'); const a=tr.querySelector('td:nth-child(2)'); const gs=g?g.textContent:''; const as=a?a.textContent:''; tr.style.display=(matches(gs)||matches(as))?'':'none'; }); }\n");
 
     html.append("    window.DEP_QUICK=window.DEP_QUICK||{}; window.DEP_NAV=window.DEP_NAV||{};\n");
     html.append("    function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&'); }\n");
@@ -2072,6 +2598,60 @@ d af f CSV</button>\\n");
         return null;
     }
 
+    /**
+     * Pre-resolve dependencies for all reactor modules so that required POMs are available
+     * in the local repository before license collection runs. This prevents "unknown" licenses
+     * and null versions when the build is invoked directly on this goal without a prior resolve.
+     */
+    private void preResolveDependenciesForLicensesInSession() {
+        if (session == null || dependencyGraphBuilder == null) {
+            return;
+        }
+        if (session.getAllProjects() == null || session.getAllProjects().isEmpty()) {
+            return;
+        }
+        getLog().debug("Pre-resolving dependencies for license collection across reactor modules");
+        for (MavenProject p : session.getAllProjects()) {
+            try {
+                ProjectBuildingRequest req = new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
+                req.setProject(p);
+                org.apache.maven.shared.dependency.graph.DependencyNode root =
+                        dependencyGraphBuilder.buildDependencyGraph(req, null);
+
+                // Traverse the resolved graph to publish GA->V mapping so core can resolve versions fast
+                if (root != null) {
+                    java.util.ArrayDeque<org.apache.maven.shared.dependency.graph.DependencyNode> stack = new java.util.ArrayDeque<>();
+                    java.util.HashSet<String> seen = new java.util.HashSet<>();
+                    stack.push(root);
+                    while (!stack.isEmpty()) {
+                        org.apache.maven.shared.dependency.graph.DependencyNode n = stack.pop();
+                        Artifact a = (n != null) ? n.getArtifact() : null;
+                        if (a != null) {
+                            String g = a.getGroupId();
+                            String aId = a.getArtifactId();
+                            String v = a.getVersion();
+                            if (g != null && aId != null && v != null) {
+                                String k = g + ":" + aId;
+                                if (seen.add(k)) {
+                                    System.setProperty("deploy.manifest.resolved.ga." + k, v);
+                                }
+                            }
+                        }
+                        if (n != null && n.getChildren() != null) {
+                            for (org.apache.maven.shared.dependency.graph.DependencyNode c : n.getChildren()) {
+                                if (c != null) stack.push(c);
+                            }
+                        }
+                    }
+                }
+            } catch (Throwable t) {
+                // Best-effort: do not fail plugin execution because of pre-resolution
+                getLog().debug("Skipping pre-resolve for " + p.getGroupId() + ":" + p.getArtifactId() + ": " + t.getMessage());
+            }
+        }
+    }
+
+
     private io.github.tourem.maven.descriptor.model.DependencyNode convertNode(
             org.apache.maven.shared.dependency.graph.DependencyNode node,
             Set<String> allowedScopes,
@@ -2179,6 +2759,75 @@ d af f CSV</button>\\n");
 
 
     /**
+     * Enrich BuildInfo with Maven runtime and executed goals (plugin-only info).
+     */
+    private io.github.tourem.maven.descriptor.model.ProjectDescriptor enrichBuildInfoWithProperties(io.github.tourem.maven.descriptor.model.ProjectDescriptor descriptor) {
+        if (descriptor == null || descriptor.buildInfo() == null) return descriptor;
+        var bi = descriptor.buildInfo();
+
+        String mvnVersion = session != null && session.getSystemProperties() != null
+                ? session.getSystemProperties().getProperty("maven.version")
+                : System.getProperty("maven.version");
+        String mvnHome = session != null && session.getSystemProperties() != null
+                ? session.getSystemProperties().getProperty("maven.home")
+                : System.getProperty("maven.home");
+        var maven = io.github.tourem.maven.descriptor.model.MavenRuntimeInfo.builder()
+                .version(mvnVersion)
+                .home(mvnHome)
+                .build();
+
+        java.util.List<String> executed = session != null && session.getGoals() != null
+                ? new java.util.ArrayList<>(session.getGoals())
+                : null;
+        var goals = io.github.tourem.maven.descriptor.model.BuildGoals.builder()
+                .defaultGoal(project.getDefaultGoal())
+                .executed(executed == null || executed.isEmpty() ? null : executed)
+                .build();
+
+        var newBuildInfo = io.github.tourem.maven.descriptor.model.BuildInfo.builder()
+                .gitCommitSha(bi.gitCommitSha())
+                .gitCommitShortSha(bi.gitCommitShortSha())
+                .gitBranch(bi.gitBranch())
+                .gitTag(bi.gitTag())
+                .gitDirty(bi.gitDirty())
+                .gitRemoteUrl(bi.gitRemoteUrl())
+                .gitCommitMessage(bi.gitCommitMessage())
+                .gitCommitAuthor(bi.gitCommitAuthor())
+                .gitCommitTime(bi.gitCommitTime())
+                .ciProvider(bi.ciProvider())
+                .ciBuildId(bi.ciBuildId())
+                .ciBuildNumber(bi.ciBuildNumber())
+                .ciBuildUrl(bi.ciBuildUrl())
+                .ciJobName(bi.ciJobName())
+                .ciActor(bi.ciActor())
+                .ciEventName(bi.ciEventName())
+                .buildTimestamp(bi.buildTimestamp())
+                .buildHost(bi.buildHost())
+                .buildUser(bi.buildUser())
+                .properties(bi.properties())
+                .profiles(bi.profiles())
+                .maven(maven)
+                .goals(goals)
+                .build();
+
+        return io.github.tourem.maven.descriptor.model.ProjectDescriptor.builder()
+                .projectGroupId(descriptor.projectGroupId())
+                .projectArtifactId(descriptor.projectArtifactId())
+                .projectVersion(descriptor.projectVersion())
+                .projectName(descriptor.projectName())
+                .projectDescription(descriptor.projectDescription())
+                .generatedAt(descriptor.generatedAt())
+                .deployableModules(descriptor.deployableModules())
+                .totalModules(descriptor.totalModules())
+                .deployableModulesCount(descriptor.deployableModulesCount())
+                .buildInfo(newBuildInfo)
+                .mavenRepositoryUrl(descriptor.mavenRepositoryUrl())
+                .build();
+    }
+
+
+
+    /**
      * Escape HTML special characters to prevent XSS.
      */
     private String escapeHtml(String text) {
@@ -2206,6 +2855,7 @@ d af f CSV</button>\\n");
             // Set environment variable with generated file path
             pb.environment().put("DESCRIPTOR_FILE", generatedFile.toAbsolutePath().toString());
             pb.environment().put("PROJECT_NAME", project.getName());
+
             pb.environment().put("PROJECT_VERSION", project.getVersion());
 
             pb.redirectErrorStream(true);

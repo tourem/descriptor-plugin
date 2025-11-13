@@ -123,5 +123,10 @@ public class DeployableModule {
      * and typically for executable modules).
      */
     private DependencyTreeInfo dependencies;
+
+    /**
+     * License information for this module's dependencies (optional, feature-gated).
+     */
+    private LicenseInfo licenses;
 }
 

@@ -11,6 +11,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet.
 
 
+
+## [2.3.0] - 2025-11-13
+
+### Added
+- Compliance tab UX:
+  - Per-module “Expand all / Collapse all” controls that toggle both Warnings and License Details at once
+  - Search filter by groupId/artifactId that filters Warnings (artifact column) and License Details (Group/Artifact columns)
+
+### Fixed
+- Upgrade JGit to 6.10.0 to eliminate `NoClassDefFoundError: org/eclipse/jgit/internal/JGitText` during JVM shutdown
+
+
+## [2.2.0] - 2025-11-13
+
+### Added
+- Licenses and compliance (optional):
+  - Parse POM licenses for direct and transitive dependencies
+  - Configurable incompatible licenses set (default: GPL-3.0, AGPL-3.0, SSPL)
+  - HTML Compliance view with pie chart, filters and warning badges (when enabled)
+- Build properties and profiles (optional):
+  - Grouped properties: project, maven, custom, system, environment (with masked count)
+  - Sensitive-key filtering and masking controls; configurable extra patterns
+  - Maven runtime info (version/home) and executed goals capture
+  - HTML Build Info: Properties table with search filter; Maven Profiles (default/active/available)
+- Build plugins (optional):
+  - Effective plugins list with version, phase, goals, source; sanitized configuration
+  - Plugin Management section with version and "Used in Build" indicator
+  - Optional version update checks against Maven Central (best-effort, timeout configurable)
+  - HTML Build Info: “Build Plugins” section with summary badges and tables
+
+### Changed
+- Build Info tab layout: moved “Build Plugins” section after “Maven Profiles” for a more natural reading flow
+- Documentation: README updated to version 2.2.0 with new parameters sections (Licenses, Build Properties, Plugins)
+
 ## [2.1.0] - 2025-11-13
 
 ### Added
