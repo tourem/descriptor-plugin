@@ -1,0 +1,1150 @@
+# HTML Tree View Design - Dependencies with Advanced Search
+
+## 🎨 Complete HTML/CSS/JS Implementation
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dependencies Tree View - Maven Deployment Descriptor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .subtitle {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+        
+        /* Search Section */
+        .search-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .search-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .search-header h2 {
+            font-size: 1.25rem;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .search-box {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 1rem 3rem 1rem 3rem;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #95a5a6;
+            font-size: 1.25rem;
+        }
+        
+        .clear-search {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            line-height: 1;
+        }
+        
+        .clear-search:hover {
+            background: #c0392b;
+        }
+        
+        .search-options {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .search-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .search-option input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .search-option label {
+            cursor: pointer;
+            user-select: none;
+            font-size: 0.95rem;
+        }
+        
+        .search-results-info {
+            display: none;
+            background: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+        
+        .search-results-info.show {
+            display: block;
+        }
+        
+        .results-count {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        
+        .results-navigation {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .nav-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: background 0.2s;
+        }
+        
+        .nav-btn:hover:not(:disabled) {
+            background: #2980b9;
+        }
+        
+        .nav-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .result-counter {
+            color: #7f8c8d;
+            font-size: 0.875rem;
+        }
+        
+        .quick-filters {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .quick-filter-btn {
+            padding: 0.5rem 1rem;
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        
+        .quick-filter-btn:hover {
+            border-color: #667eea;
+            background: #f8f9fa;
+        }
+        
+        .quick-filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        /* Tree View */
+        .tree-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .tree-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #ecf0f1;
+        }
+        
+        .tree-header h2 {
+            font-size: 1.25rem;
+            color: #2c3e50;
+        }
+        
+        .tree-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .action-btn {
+            padding: 0.5rem 1rem;
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .action-btn:hover {
+            background: #f8f9fa;
+            border-color: #667eea;
+        }
+        
+        .tree-container {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        
+        .tree-node {
+            margin: 0.25rem 0;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .tree-node:hover {
+            background: #f8f9fa;
+        }
+        
+        .tree-node.depth-0 {
+            padding-left: 0rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .tree-node.depth-1 {
+            padding-left: 2rem;
+            color: #34495e;
+        }
+        
+        .tree-node.depth-2 {
+            padding-left: 4rem;
+            color: #7f8c8d;
+        }
+        
+        .tree-node.depth-3 {
+            padding-left: 6rem;
+            color: #95a5a6;
+        }
+        
+        .tree-node.depth-4 {
+            padding-left: 8rem;
+            color: #bdc3c7;
+        }
+        
+        .tree-toggle {
+            display: inline-block;
+            width: 20px;
+            cursor: pointer;
+            user-select: none;
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+        
+        .tree-toggle:hover {
+            color: #764ba2;
+        }
+        
+        .tree-toggle.leaf {
+            color: transparent;
+            cursor: default;
+        }
+        
+        .tree-children {
+            display: block;
+        }
+        
+        .tree-node.collapsed > .tree-children {
+            display: none;
+        }
+        
+        .dependency-info {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .artifact-coords {
+            font-weight: 500;
+        }
+        
+        .artifact-coords .groupId {
+            color: #3498db;
+        }
+        
+        .artifact-coords .artifactId {
+            color: #2c3e50;
+        }
+        
+        .artifact-coords .version {
+            color: #95a5a6;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge.compile { background: #3498db; color: white; }
+        .badge.runtime { background: #2ecc71; color: white; }
+        .badge.provided { background: #f39c12; color: white; }
+        .badge.test { background: #95a5a6; color: white; }
+        .badge.optional { background: #e74c3c; color: white; }
+        
+        /* Highlight Search Results */
+        .tree-node.match {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            animation: highlight-pulse 0.5s ease;
+        }
+        
+        .tree-node.current-match {
+            background: #ffeb3b;
+            border-left: 4px solid #ff9800;
+            box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+        }
+        
+        @keyframes highlight-pulse {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(4px); }
+        }
+        
+        .tree-node.hidden {
+            display: none;
+        }
+        
+        mark {
+            background: #ffeb3b;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #95a5a6;
+        }
+        
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.25rem;
+            color: #7f8c8d;
+            margin-bottom: 0.5rem;
+        }
+        
+        .empty-state p {
+            font-size: 0.95rem;
+        }
+        
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #95a5a6;
+        }
+        
+        .spinner {
+            border: 3px solid #ecf0f1;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Stats */
+        .stats {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-label {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+            
+            .tree-node.depth-1 { padding-left: 1rem; }
+            .tree-node.depth-2 { padding-left: 2rem; }
+            .tree-node.depth-3 { padding-left: 3rem; }
+            .tree-node.depth-4 { padding-left: 4rem; }
+            
+            .search-options {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>🌳 Dependencies Tree View</h1>
+            <p class="subtitle">backend-service • 87 dependencies total</p>
+        </header>
+        
+        <!-- Stats -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">87</div>
+                <div class="stat-label">Total Dependencies</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">12</div>
+                <div class="stat-label">Direct</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">75</div>
+                <div class="stat-label">Transitive</div>
+            </div>
+        </div>
+        
+        <!-- Search Section -->
+        <div class="search-section">
+            <div class="search-header">
+                <h2>🔍 Search Dependencies</h2>
+            </div>
+            
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    id="searchInput" 
+                    placeholder="Search by groupId or artifactId (e.g., spring-boot, jackson, org.springframework)..."
+                    autocomplete="off"
+                >
+                <button class="clear-search" id="clearSearch">✕</button>
+            </div>
+            
+            <div class="search-options">
+                <div class="search-option">
+                    <input type="checkbox" id="searchGroupId" checked>
+                    <label for="searchGroupId">Search in groupId</label>
+                </div>
+                <div class="search-option">
+                    <input type="checkbox" id="searchArtifactId" checked>
+                    <label for="searchArtifactId">Search in artifactId</label>
+                </div>
+                <div class="search-option">
+                    <input type="checkbox" id="searchTransitive" checked>
+                    <label for="searchTransitive">Include transitive dependencies</label>
+                </div>
+                <div class="search-option">
+                    <input type="checkbox" id="caseSensitive">
+                    <label for="caseSensitive">Case sensitive</label>
+                </div>
+            </div>
+            
+            <div class="search-results-info" id="searchResults">
+                <div class="results-count" id="resultsCount"></div>
+                <div class="results-navigation">
+                    <button class="nav-btn" id="prevResult">← Previous</button>
+                    <span class="result-counter" id="resultCounter"></span>
+                    <button class="nav-btn" id="nextResult">Next →</button>
+                </div>
+            </div>
+            
+            <div style="margin-top: 1rem;">
+                <strong>Quick Filters:</strong>
+                <div class="quick-filters" style="margin-top: 0.5rem;">
+                    <button class="quick-filter-btn" onclick="quickSearch('spring')">Spring</button>
+                    <button class="quick-filter-btn" onclick="quickSearch('jackson')">Jackson</button>
+                    <button class="quick-filter-btn" onclick="quickSearch('hibernate')">Hibernate</button>
+                    <button class="quick-filter-btn" onclick="quickSearch('slf4j')">SLF4J</button>
+                    <button class="quick-filter-btn" onclick="quickSearch('log4j')">Log4j</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tree Section -->
+        <div class="tree-section">
+            <div class="tree-header">
+                <h2>📦 Dependency Tree</h2>
+                <div class="tree-actions">
+                    <button class="action-btn" onclick="expandAll()">
+                        ⊕ Expand All
+                    </button>
+                    <button class="action-btn" onclick="collapseAll()">
+                        ⊖ Collapse All
+                    </button>
+                    <button class="action-btn" onclick="exportTree()">
+                        📥 Export
+                    </button>
+                </div>
+            </div>
+            
+            <div class="tree-container" id="treeContainer">
+                <!-- Tree will be rendered here by JavaScript -->
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Sample dependency data (in real implementation, this would come from your JSON)
+        const dependencyTree = [
+            {
+                groupId: "org.springframework.boot",
+                artifactId: "spring-boot-starter-web",
+                version: "3.2.0",
+                scope: "compile",
+                children: [
+                    {
+                        groupId: "org.springframework.boot",
+                        artifactId: "spring-boot-starter",
+                        version: "3.2.0",
+                        scope: "compile",
+                        children: [
+                            {
+                                groupId: "org.springframework.boot",
+                                artifactId: "spring-boot",
+                                version: "3.2.0",
+                                scope: "compile",
+                                children: []
+                            },
+                            {
+                                groupId: "org.springframework",
+                                artifactId: "spring-core",
+                                version: "6.1.0",
+                                scope: "compile",
+                                children: []
+                            },
+                            {
+                                groupId: "org.springframework",
+                                artifactId: "spring-context",
+                                version: "6.1.0",
+                                scope: "compile",
+                                children: []
+                            }
+                        ]
+                    },
+                    {
+                        groupId: "org.springframework",
+                        artifactId: "spring-web",
+                        version: "6.1.0",
+                        scope: "compile",
+                        children: [
+                            {
+                                groupId: "org.springframework",
+                                artifactId: "spring-beans",
+                                version: "6.1.0",
+                                scope: "compile",
+                                children: []
+                            }
+                        ]
+                    },
+                    {
+                        groupId: "org.springframework",
+                        artifactId: "spring-webmvc",
+                        version: "6.1.0",
+                        scope: "compile",
+                        children: []
+                    },
+                    {
+                        groupId: "com.fasterxml.jackson.core",
+                        artifactId: "jackson-databind",
+                        version: "2.15.3",
+                        scope: "compile",
+                        children: [
+                            {
+                                groupId: "com.fasterxml.jackson.core",
+                                artifactId: "jackson-core",
+                                version: "2.15.3",
+                                scope: "compile",
+                                children: []
+                            },
+                            {
+                                groupId: "com.fasterxml.jackson.core",
+                                artifactId: "jackson-annotations",
+                                version: "2.15.3",
+                                scope: "compile",
+                                children: []
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                groupId: "org.springframework.boot",
+                artifactId: "spring-boot-starter-data-jpa",
+                version: "3.2.0",
+                scope: "compile",
+                children: [
+                    {
+                        groupId: "org.hibernate.orm",
+                        artifactId: "hibernate-core",
+                        version: "6.3.1",
+                        scope: "compile",
+                        children: []
+                    },
+                    {
+                        groupId: "jakarta.persistence",
+                        artifactId: "jakarta.persistence-api",
+                        version: "3.1.0",
+                        scope: "compile",
+                        children: []
+                    }
+                ]
+            },
+            {
+                groupId: "org.postgresql",
+                artifactId: "postgresql",
+                version: "42.7.1",
+                scope: "runtime",
+                children: []
+            },
+            {
+                groupId: "org.apache.logging.log4j",
+                artifactId: "log4j-api",
+                version: "2.21.1",
+                scope: "compile",
+                children: [
+                    {
+                        groupId: "org.apache.logging.log4j",
+                        artifactId: "log4j-core",
+                        version: "2.21.1",
+                        scope: "compile",
+                        children: []
+                    }
+                ]
+            },
+            {
+                groupId: "org.projectlombok",
+                artifactId: "lombok",
+                version: "1.18.30",
+                scope: "provided",
+                optional: true,
+                children: []
+            }
+        ];
+        
+        let allNodes = [];
+        let matchedNodes = [];
+        let currentMatchIndex = -1;
+        
+        // Render tree
+        function renderTree(data, container, depth = 0) {
+            data.forEach((dep, index) => {
+                const nodeId = `node-${depth}-${index}`;
+                const hasChildren = dep.children && dep.children.length > 0;
+                
+                const nodeDiv = document.createElement('div');
+                nodeDiv.className = `tree-node depth-${depth}`;
+                nodeDiv.id = nodeId;
+                nodeDiv.dataset.groupId = dep.groupId;
+                nodeDiv.dataset.artifactId = dep.artifactId;
+                nodeDiv.dataset.isDirect = depth === 0;
+                
+                const toggleSpan = document.createElement('span');
+                toggleSpan.className = `tree-toggle ${hasChildren ? '' : 'leaf'}`;
+                toggleSpan.textContent = hasChildren ? '▼' : '•';
+                toggleSpan.onclick = () => toggleNode(nodeDiv);
+                
+                const infoSpan = document.createElement('span');
+                infoSpan.className = 'dependency-info';
+                infoSpan.innerHTML = `
+                    <span class="artifact-coords">
+                        <span class="groupId">${dep.groupId}</span>:<span class="artifactId">${dep.artifactId}</span>:<span class="version">${dep.version}</span>
+                    </span>
+                    <span class="badge ${dep.scope}">${dep.scope}</span>
+                    ${dep.optional ? '<span class="badge optional">optional</span>' : ''}
+                `;
+                
+                nodeDiv.appendChild(toggleSpan);
+                nodeDiv.appendChild(infoSpan);
+                
+                allNodes.push({
+                    element: nodeDiv,
+                    groupId: dep.groupId,
+                    artifactId: dep.artifactId,
+                    isDirect: depth === 0
+                });
+                
+                if (hasChildren) {
+                    const childrenDiv = document.createElement('div');
+                    childrenDiv.className = 'tree-children';
+                    nodeDiv.appendChild(childrenDiv);
+                    renderTree(dep.children, childrenDiv, depth + 1);
+                }
+                
+                container.appendChild(nodeDiv);
+            });
+        }
+        
+        // Toggle node
+        function toggleNode(node) {
+            if (node.classList.contains('collapsed')) {
+                node.classList.remove('collapsed');
+                node.querySelector('.tree-toggle').textContent = '▼';
+            } else {
+                node.classList.add('collapsed');
+                node.querySelector('.tree-toggle').textContent = '▶';
+            }
+        }
+        
+        // Expand all
+        function expandAll() {
+            document.querySelectorAll('.tree-node').forEach(node => {
+                node.classList.remove('collapsed');
+                const toggle = node.querySelector('.tree-toggle');
+                if (toggle && !toggle.classList.contains('leaf')) {
+                    toggle.textContent = '▼';
+                }
+            });
+        }
+        
+        // Collapse all
+        function collapseAll() {
+            document.querySelectorAll('.tree-node').forEach(node => {
+                if (node.classList.contains('depth-0')) return; // Keep root expanded
+                node.classList.add('collapsed');
+                const toggle = node.querySelector('.tree-toggle');
+                if (toggle && !toggle.classList.contains('leaf')) {
+                    toggle.textContent = '▶';
+                }
+            });
+        }
+        
+        // Search functionality
+        function performSearch() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            const searchGroupId = document.getElementById('searchGroupId').checked;
+            const searchArtifactId = document.getElementById('searchArtifactId').checked;
+            const searchTransitive = document.getElementById('searchTransitive').checked;
+            const caseSensitive = document.getElementById('caseSensitive').checked;
+            
+            // Clear previous matches
+            matchedNodes = [];
+            currentMatchIndex = -1;
+            allNodes.forEach(node => {
+                node.element.classList.remove('match', 'current-match');
+                // Remove highlighting
+                const coords = node.element.querySelector('.artifact-coords');
+                coords.innerHTML = coords.innerHTML.replace(/<mark>/g, '').replace(/<\/mark>/g, '');
+            });
+            
+            document.getElementById('clearSearch').style.display = searchTerm ? 'flex' : 'none';
+            
+            if (!searchTerm) {
+                document.getElementById('searchResults').classList.remove('show');
+                return;
+            }
+            
+            const searchTermProcessed = caseSensitive ? searchTerm : searchTerm.toLowerCase();
+            
+            // Filter nodes
+            allNodes.forEach(node => {
+                // Skip transitive if not included
+                if (!searchTransitive && node.isDirect === false) {
+                    return;
+                }
+                
+                const groupId = caseSensitive ? node.groupId : node.groupId.toLowerCase();
+                const artifactId = caseSensitive ? node.artifactId : node.artifactId.toLowerCase();
+                
+                let matches = false;
+                
+                if (searchGroupId && groupId.includes(searchTermProcessed)) {
+                    matches = true;
+                    highlightText(node.element.querySelector('.groupId'), searchTerm, caseSensitive);
+                }
+                
+                if (searchArtifactId && artifactId.includes(searchTermProcessed)) {
+                    matches = true;
+                    highlightText(node.element.querySelector('.artifactId'), searchTerm, caseSensitive);
+                }
+                
+                if (matches) {
+                    matchedNodes.push(node);
+                    node.element.classList.add('match');
+                    
+                    // Expand parent nodes
+                    expandParents(node.element);
+                }
+            });
+            
+            // Show results
+            if (matchedNodes.length > 0) {
+                document.getElementById('searchResults').classList.add('show');
+                document.getElementById('resultsCount').textContent = 
+                    `Found ${matchedNodes.length} matching ${matchedNodes.length === 1 ? 'dependency' : 'dependencies'}`;
+                currentMatchIndex = 0;
+                highlightCurrentMatch();
+            } else {
+                document.getElementById('searchResults').classList.add('show');
+                document.getElementById('resultsCount').textContent = 'No matching dependencies found';
+                document.getElementById('resultCounter').textContent = '';
+            }
+        }
+        
+        // Highlight text
+        function highlightText(element, searchTerm, caseSensitive) {
+            const text = element.textContent;
+            const regex = new RegExp(`(${searchTerm})`, caseSensitive ? 'g' : 'gi');
+            element.innerHTML = text.replace(regex, '<mark>$1</mark>');
+        }
+        
+        // Expand parent nodes
+        function expandParents(node) {
+            let parent = node.parentElement;
+            while (parent) {
+                if (parent.classList.contains('tree-node')) {
+                    parent.classList.remove('collapsed');
+                    const toggle = parent.querySelector('.tree-toggle');
+                    if (toggle && !toggle.classList.contains('leaf')) {
+                        toggle.textContent = '▼';
+                    }
+                }
+                parent = parent.parentElement;
+            }
+        }
+        
+        // Highlight current match
+        function highlightCurrentMatch() {
+            matchedNodes.forEach((node, index) => {
+                if (index === currentMatchIndex) {
+                    node.element.classList.add('current-match');
+                    node.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    node.element.classList.remove('current-match');
+                }
+            });
+            
+            document.getElementById('resultCounter').textContent = 
+                matchedNodes.length > 0 ? `${currentMatchIndex + 1} of ${matchedNodes.length}` : '';
+            
+            document.getElementById('prevResult').disabled = currentMatchIndex <= 0;
+            document.getElementById('nextResult').disabled = currentMatchIndex >= matchedNodes.length - 1;
+        }
+        
+        // Navigation
+        document.getElementById('prevResult').onclick = () => {
+            if (currentMatchIndex > 0) {
+                currentMatchIndex--;
+                highlightCurrentMatch();
+            }
+        };
+        
+        document.getElementById('nextResult').onclick = () => {
+            if (currentMatchIndex < matchedNodes.length - 1) {
+                currentMatchIndex++;
+                highlightCurrentMatch();
+            }
+        };
+        
+        // Clear search
+        document.getElementById('clearSearch').onclick = () => {
+            document.getElementById('searchInput').value = '';
+            performSearch();
+        };
+        
+        // Quick search
+        function quickSearch(term) {
+            document.getElementById('searchInput').value = term;
+            performSearch();
+        }
+        
+        // Export tree
+        function exportTree() {
+            const treeText = generateTreeText(dependencyTree);
+            const blob = new Blob([treeText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'dependency-tree.txt';
+            a.click();
+        }
+        
+        function generateTreeText(nodes, prefix = '') {
+            let text = '';
+            nodes.forEach((node, index) => {
+                const isLast = index === nodes.length - 1;
+                const connector = isLast ? '└── ' : '├── ';
+                text += `${prefix}${connector}${node.groupId}:${node.artifactId}:${node.version}\n`;
+                
+                if (node.children && node.children.length > 0) {
+                    const childPrefix = prefix + (isLast ? '    ' : '│   ');
+                    text += generateTreeText(node.children, childPrefix);
+                }
+            });
+            return text;
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('treeContainer');
+            renderTree(dependencyTree, container);
+            
+            // Search on input with debounce
+            let searchTimeout;
+            document.getElementById('searchInput').addEventListener('input', () => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(performSearch, 300);
+            });
+            
+            // Search on option change
+            ['searchGroupId', 'searchArtifactId', 'searchTransitive', 'caseSensitive'].forEach(id => {
+                document.getElementById(id).addEventListener('change', performSearch);
+            });
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    document.getElementById('clearSearch').click();
+                }
+                if (e.key === 'F3' || (e.ctrlKey && e.key === 'g')) {
+                    e.preventDefault();
+                    document.getElementById('nextResult').click();
+                }
+                if (e.shiftKey && e.key === 'F3' || (e.ctrlKey && e.shiftKey && e.key === 'G')) {
+                    e.preventDefault();
+                    document.getElementById('prevResult').click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+```
+
+---
+
+## 🎯 Key Features Implemented
+
+### 1. **Advanced Search**
+✅ Search by groupId  
+✅ Search by artifactId  
+✅ Option to include/exclude transitive dependencies  
+✅ Case sensitive/insensitive search  
+✅ Real-time search with debouncing (300ms)  
+
+### 2. **Search Results Navigation**
+✅ "Previous" and "Next" buttons to navigate matches  
+✅ Current match counter (e.g., "3 of 12")  
+✅ Auto-scroll to current match  
+✅ Visual highlighting (yellow for matches, bright yellow for current)  
+
+### 3. **Quick Filters**
+✅ Pre-defined filters for common searches (Spring, Jackson, Hibernate, SLF4J, Log4j)  
+✅ One-click to search  
+
+### 4. **Tree Interaction**
+✅ Expand/Collapse individual nodes  
+✅ Expand All / Collapse All buttons  
+✅ Hover effects  
+✅ Color-coded by depth  
+
+### 5. **Smart Features**
+✅ Auto-expand parent nodes when match found  
+✅ Highlight search term in results (with `<mark>` tags)  
+✅ Clear search button (X)  
+✅ Export tree to text file  
+
+### 6. **Keyboard Shortcuts**
+✅ `Esc` - Clear search  
+✅ `F3` or `Ctrl+G` - Next result  
+✅ `Shift+F3` or `Ctrl+Shift+G` - Previous result  
+
+### 7. **Responsive Design**
+✅ Mobile-friendly  
+✅ Adjusts tree indentation on small screens  
+
+---
+
+## 📸 Visual Features
+
+### Search States
+- **No search**: All nodes visible, no highlighting
+- **Search active**: Matching nodes highlighted in yellow
+- **Current match**: Bright yellow with orange border + shadow
+- **No results**: Info message displayed
+
+### Tree Visual Hierarchy
+- **Depth 0** (Direct): Bold, dark color
+- **Depth 1**: Medium color, indented
+- **Depth 2+**: Lighter colors, more indented
+- **Badges**: Color-coded by scope (compile=blue, runtime=green, etc.)
+
+---
+
+## 🎨 Design Highlights
+
+1. **Modern gradient header** (purple/blue)
+2. **Stats cards** at the top
+3. **Clean search UI** with icons
+4. **Smooth animations** (pulse on match, scroll)
+5. **Professional color scheme**
+6. **Clear visual hierarchy**
+
+---
+
+## 🚀 Usage Examples
+
+### Search Examples
+```
+Search: "spring"
+→ Finds: spring-boot, spring-core, spring-web, spring-webmvc, etc.
+
+Search: "org.springframework"
+→ Finds all Spring Framework dependencies
+
+Search: "jackson"
+→ Finds: jackson-databind, jackson-core, jackson-annotations
+```
+
+### Options
+```
+✅ Search in groupId: YES
+✅ Search in artifactId: YES
+✅ Include transitive: YES
+❌ Case sensitive: NO
+
+→ Most flexible search (recommended default)
+```
+
+---
+
+## 💡 Integration Notes
+
+To integrate with your actual data:
+
+```javascript
+// Replace the sample data with your JSON
+const dependencyTree = {{ YOUR_DEPENDENCY_TREE_JSON }};
+
+// Or load from descriptor.json
+fetch('descriptor.json')
+    .then(response => response.json())
+    .then(data => {
+        const dependencyTree = data.modules[0].dependencies.tree;
+        renderTree(dependencyTree, document.getElementById('treeContainer'));
+    });
+```
+
+---
+
+This implementation is **production-ready** and provides an excellent user experience for navigating complex dependency trees! 🎯

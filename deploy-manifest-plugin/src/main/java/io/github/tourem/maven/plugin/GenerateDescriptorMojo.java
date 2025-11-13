@@ -1016,11 +1016,11 @@ public class GenerateDescriptorMojo extends AbstractMojo {
 
         // Tabs Navigation
         html.append("    <div class=\"tabs\">\n");
-        html.append("      <button class=\"tab active\" onclick=\"showTab('overview')\">📊 Overview</button>\n");
-        html.append("      <button class=\"tab\" onclick=\"showTab('build')\">🔨 Build Info</button>\n");
-        html.append("      <button class=\"tab\" onclick=\"showTab('modules')\">📦 Modules</button>\n");
-        html.append("      <button class=\"tab\" onclick=\"showTab('environments')\">🌍 Environments</button>\n");
-        html.append("      <button class=\"tab\" onclick=\"showTab('assemblies')\">📚 Assemblies</button>\n");
+        html.append("      <button class=\"tab active\" onclick=\"showTab(this, 'overview')\">📊 Overview</button>\n");
+        html.append("      <button class=\"tab\" onclick=\"showTab(this, 'build')\">🔨 Build Info</button>\n");
+        html.append("      <button class=\"tab\" onclick=\"showTab(this, 'modules')\">📦 Modules</button>\n");
+        html.append("      <button class=\"tab\" onclick=\"showTab(this, 'environments')\">🌍 Environments</button>\n");
+        html.append("      <button class=\"tab\" onclick=\"showTab(this, 'assemblies')\">📚 Assemblies</button>\n");
         html.append("    </div>\n");
 
         // Tab 1: Overview
@@ -1615,7 +1615,7 @@ d af f CSV</button>\\n");
         html.append("  </div>\n");
         html.append("  <script>\n");
         html.append("    // Tab navigation\n");
-        html.append("    function showTab(tabName) {\n");
+        html.append("    function showTab(btn, tabName) {\n");
         html.append("      // Hide all tab contents\n");
         html.append("      const contents = document.querySelectorAll('.tab-content');\n");
         html.append("      contents.forEach(content => content.classList.remove('active'));\n");
@@ -1628,7 +1628,7 @@ d af f CSV</button>\\n");
         html.append("      document.getElementById(tabName).classList.add('active');\n");
         html.append("      \n");
         html.append("      // Add active class to clicked tab\n");
-        html.append("      event.target.classList.add('active');\n");
+        html.append("      btn.classList.add('active');\n");
         html.append("    }\n");
         html.append("    \n");
         html.append("    // Theme toggle\n");
