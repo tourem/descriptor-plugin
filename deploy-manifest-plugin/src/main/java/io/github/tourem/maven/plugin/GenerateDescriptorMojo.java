@@ -1767,6 +1767,54 @@ d af f CSV</button>\\n");
                             html.append("          <div class=\"info-item\"><div class=\"info-label\">Unknown</div><div class=\"info-value\"><strong>")
                                .append(sum.getUnknown()).append("</strong></div></div>\n");
                             html.append("        </div>\n");
+
+                                // Distribution + Filters
+                                if (sum != null && sum.getByType() != null && !sum.getByType().isEmpty()) {
+                                    String modId = String.valueOf(module.getArtifactId());
+                                    html.append("        <div style=\"display:flex;gap:24px;align-items:flex-start;margin:6px 0 14px 0;\">\n");
+                                    html.append("          <div>\n");
+                                    html.append("            <canvas id=\"lic-pie-").append(escapeHtml(modId)).append("\" width=\"220\" height=\"220\" style=\"border-radius:10px\"></canvas>\n");
+                                    html.append("          </div>\n");
+                                    html.append("          <div>\n");
+                                    html.append("            <div style=\"display:flex;gap:8px;align-items:center;margin-bottom:10px;\">\n");
+                                    html.append("              <input type=\"text\" id=\"lic-search-").append(escapeHtml(modId)).append("\" placeholder=\"Search artifact or license\" />\n");
+                                    html.append("              <select id=\"lic-type-").append(escapeHtml(modId)).append("\">\n");
+                                    html.append("                <option value=\"\">All licenses</option>\n");
+                                    for (var e : sum.getByType().entrySet()) {
+                                        html.append("                <option value=\"").append(escapeHtml(String.valueOf(e.getKey()))).append("\">")
+                                            .append(escapeHtml(String.valueOf(e.getKey()))).append(" (").append(String.valueOf(e.getValue())).append(")</option>\n");
+                                    }
+                                    html.append("              </select>\n");
+                                    html.append("            </div>\n");
+                                    html.append("            <div class=\"legend\">\n");
+                                    for (var e : sum.getByType().entrySet()) {
+                                        html.append("              <div style=\"display:flex;align-items:center;gap:6px;margin:2px 0;\"><span class=\"swatch\" data-lic=\"")
+                                            .append(escapeHtml(String.valueOf(e.getKey()))).append("\" style=\"display:inline-block;width:12px;height:12px;border-radius:2px;\"></span> ")
+                                            .append(escapeHtml(String.valueOf(e.getKey()))).append(" <small>(").append(String.valueOf(e.getValue())).append(")</small></div>\n");
+                                    }
+                                    html.append("            </div>\n");
+                                    html.append("          </div>\n");
+                                    html.append("        </div>\n");
+
+                                    // inline JS for pie + filters + sortTable helper
+                                    StringBuilder labels = new StringBuilder();
+                                    StringBuilder values = new StringBuilder();
+                                    int idx = 0; int size = sum.getByType().size();
+                                    for (var e : sum.getByType().entrySet()) {
+                                        labels.append('\"').append(e.getKey()).append('\"');
+                                        values.append(e.getValue());
+                                        if (++idx < size) { labels.append(","); values.append(","); }
+                                    }
+                                    html.append("<script>(function(){\n");
+                                    html.append("var labels = [").append(labels).append("]; var values=[").append(values).append("];\n");
+                                    html.append("var id='" ).append(escapeHtml(modId)).append("';\n");
+                                    html.append("var canvas=document.getElementById('lic-pie-'+id); if(canvas){var ctx=canvas.getContext('2d');var total=values.reduce((a,b)=>a+b,0);var start=0;var cx=110,cy=110,r=100;var colors=labels.map((_,i)=>`hsl(${(i*53)%360},70%,55%)`);values.forEach((v,i)=>{var ang=2*Math.PI*(v/Math.max(total,1));ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,start,start+ang);ctx.closePath();ctx.fillStyle=colors[i];ctx.fill();start+=ang;});document.querySelectorAll('.swatch[data-lic]').forEach((el,i)=>{el.style.backgroundColor=colors[i]||'#888';});}\n");
+                                    html.append("function filter(){var q=(document.getElementById('lic-search-'+id)||{}).value||'';q=q.toLowerCase();var t=(document.getElementById('lic-type-'+id)||{}).value||'';var table=document.getElementById('lic-table-'+id);if(!table) return;Array.from(table.querySelectorAll('tbody tr')).forEach(tr=>{var lic=(tr.getAttribute('data-license')||'');var art=(tr.getAttribute('data-artifact')||'');var okT=!t||lic.includes(t);var okQ=lic.toLowerCase().includes(q)||art.toLowerCase().includes(q);tr.style.display=(okT&&okQ)?'':'none';});}\n");
+                                    html.append("var s=document.getElementById('lic-search-'+id); if(s){s.addEventListener('input', filter);} var sel=document.getElementById('lic-type-'+id); if(sel){sel.addEventListener('change', filter);}\n");
+                                    html.append("window.sortTable=function(tableId,col){var table=document.getElementById(tableId);if(!table)return;var rows=Array.from(table.querySelectorAll('tbody tr'));var asc=table.getAttribute('data-sort')!=='asc';rows.sort((a,b)=>{var ta=a.children[col].innerText.toLowerCase();var tb=b.children[col].innerText.toLowerCase();return asc?ta.localeCompare(tb):tb.localeCompare(ta);});var tbody=table.querySelector('tbody');rows.forEach(r=>tbody.appendChild(r));table.setAttribute('data-sort',asc?'asc':'desc');}\n");
+                                    html.append("})();</script>\n");
+                                }
+
                         }
 
                         // Warnings
@@ -1792,10 +1840,11 @@ d af f CSV</button>\\n");
                         if (lic.getDetails() != null && !lic.getDetails().isEmpty()) {
                             html.append("        <div class=\"table-container\">\n");
                             html.append("          <div class=\"section-header\">📄 License Details</div>\n");
-                            html.append("          <table>\n");
-                            html.append("            <tr><th>Group</th><th>Artifact</th><th>Version</th><th>Scope</th><th>License</th><th>URL</th><th>Depth</th></tr>\n");
+                            html.append("          <table id=\"lic-table-").append(escapeHtml(String.valueOf(module.getArtifactId()))).append("\">\n");
+                            html.append("            <thead><tr><th>Group</th><th onclick=\"sortTable('lic-table-").append(escapeHtml(String.valueOf(module.getArtifactId()))).append("',1)\">Artifact</th><th>Version</th><th>Scope</th><th onclick=\"sortTable('lic-table-").append(escapeHtml(String.valueOf(module.getArtifactId()))).append("',4)\">License</th><th>URL</th><th>Depth</th></tr></thead>\n");
+                            html.append("            <tbody>\n");
                             for (var d : lic.getDetails()) {
-                                html.append("            <tr>\n");
+                                html.append("            <tr data-license=\"").append(escapeHtml(String.valueOf(d.getLicense()))).append("\" data-artifact=\"").append(escapeHtml(String.valueOf(d.getArtifactId()))).append("\">\n");
                                 html.append("              <td>").append(escapeHtml(String.valueOf(d.getGroupId()))).append("</td>\n");
                                 html.append("              <td><strong>").append(escapeHtml(String.valueOf(d.getArtifactId()))).append("</strong></td>\n");
                                 html.append("              <td><code>").append(escapeHtml(String.valueOf(d.getVersion()))).append("</code></td>\n");
@@ -1810,6 +1859,8 @@ d af f CSV</button>\\n");
                                 html.append("              <td>").append(String.valueOf(d.getDepth()==null?1:d.getDepth())).append("</td>\n");
                                 html.append("            </tr>\n");
                             }
+                            html.append("            </tbody>\n");
+
                             html.append("          </table>\n");
                             html.append("        </div>\n");
                         }

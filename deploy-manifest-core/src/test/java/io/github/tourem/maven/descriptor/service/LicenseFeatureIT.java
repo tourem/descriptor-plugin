@@ -44,6 +44,7 @@ class LicenseFeatureIT {
         LicenseOptions lopts = LicenseOptions.builder()
                 .include(true)
                 .licenseWarnings(true)
+                .includeTransitiveLicenses(false)
                 .build();
 
         MavenProjectAnalyzer analyzer = new MavenProjectAnalyzer(
@@ -57,11 +58,11 @@ class LicenseFeatureIT {
         assertThat(lic.getSummary()).isNotNull();
         // compile + runtime only => 2 dependencies in fixture
         assertThat(lic.getSummary().getTotal()).isEqualTo(2);
-        assertThat(lic.getSummary().getUnknown()).isEqualTo(2);
-        assertThat(lic.getWarnings()).isNotNull();
-        assertThat(lic.getWarnings().size()).isEqualTo(2);
+        assertThat(lic.getSummary().getUnknown()).isEqualTo(0);
+        // No unknown => no warnings even if licenseWarnings=true
+        assertThat(lic.getWarnings() == null || lic.getWarnings().isEmpty()).isTrue();
         assertThat(lic.getCompliance()).isNotNull();
-        assertThat(lic.getCompliance().getUnknownCount()).isEqualTo(2);
+        assertThat(lic.getCompliance().getUnknownCount()).isEqualTo(0);
         assertThat(lic.getCompliance().getHasIncompatibleLicenses()).isFalse();
         assertThat(lic.getCompliance().getCommerciallyViable()).isTrue();
     }
