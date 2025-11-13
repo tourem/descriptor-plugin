@@ -3,6 +3,8 @@ package io.github.tourem.maven.descriptor.service;
 import io.github.tourem.maven.descriptor.model.LicenseOptions;
 import io.github.tourem.maven.descriptor.model.ProjectDescriptor;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
@@ -14,6 +16,15 @@ class LicenseFeatureIT {
 
     @TempDir
     Path tempDir;
+    private String previousRepo;
+
+    @AfterEach
+    void cleanup() {
+        if (previousRepo != null) {
+            System.setProperty("maven.repo.local", previousRepo);
+        }
+    }
+
 
     @Test
     void shouldNotCollectLicenses_whenFeatureDisabled() throws Exception {
@@ -40,6 +51,31 @@ class LicenseFeatureIT {
         Path projectDir = tempDir.resolve("boot-enabled");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("pom.xml"), bootPomWithDeps());
+
+        // Fake local repo with direct deps so tests are deterministic (no remote fetch)
+        Path repo = tempDir.resolve("m2repo");
+        Files.createDirectories(repo);
+        previousRepo = System.getProperty("maven.repo.local");
+        System.setProperty("maven.repo.local", repo.toString());
+        // Seed direct dependencies with licenses (compile + runtime only)
+        writePom(repo, "org.springframework.boot", "spring-boot-starter-web", "3.2.0",
+                """
+                <licenses>
+                  <license>
+                    <name>Apache-2.0</name>
+                    <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+                  </license>
+                </licenses>
+                """);
+        writePom(repo, "org.yaml", "snakeyaml", "2.2",
+                """
+                <licenses>
+                  <license>
+                    <name>Apache-2.0</name>
+                    <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+                  </license>
+                </licenses>
+                """);
 
         LicenseOptions lopts = LicenseOptions.builder()
                 .include(true)
@@ -87,6 +123,8 @@ class LicenseFeatureIT {
                   <artifactId>snakeyaml</artifactId>
                   <version>2.2</version>
                   <scope>runtime</scope>
+
+
                 </dependency>
                 <dependency>
                   <groupId>org.projectlombok</groupId>
@@ -112,5 +150,21 @@ class LicenseFeatureIT {
             </project>
             """;
     }
+
+    private static void writePom(Path repo, String g, String a, String v, String inner) throws Exception {
+        Path dir = repo.resolve(g.replace('.', '/') + "/" + a + "/" + v);
+        Files.createDirectories(dir);
+        String pom = "<project xmlns=\"http://maven.apache.org/POM/4.0.0\"\n" +
+                "         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n" +
+                "         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n" +
+                "  <modelVersion>4.0.0</modelVersion>\n" +
+                "  <groupId>" + g + "</groupId>\n" +
+                "  <artifactId>" + a + "</artifactId>\n" +
+                "  <version>" + v + "</version>\n" +
+                inner + "\n" +
+                "</project>\n";
+        Files.writeString(dir.resolve(a + "-" + v + ".pom"), pom);
+    }
+
 }
 
