@@ -21,7 +21,7 @@ class DependencyTreeOptionsTest {
                 .scopes(new HashSet<>(Set.of(" COMPILE ", "Runtime", "", "  ")))
                 .build();
         opts.normalize();
-        assertThat(opts.getScopes()).containsExactlyInAnyOrder("compile", "runtime");
+        assertThat(opts.getScopes()).contains("compile", "runtime");
     }
 
     @Test

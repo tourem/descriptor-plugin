@@ -25,7 +25,7 @@ class DependencyTreeFeatureIT {
 
         DependencyTreeOptions opts = DependencyTreeOptions.builder()
                 .include(false) // disabled
-                .scopes(Set.of("compile","runtime"))
+                .scopes(new java.util.HashSet<>(Set.of("compile","runtime")))
                 .format(DependencyTreeFormat.FLAT)
                 .build();
 
@@ -44,7 +44,7 @@ class DependencyTreeFeatureIT {
 
         DependencyTreeOptions opts = DependencyTreeOptions.builder()
                 .include(true)
-                .scopes(Set.of("compile","runtime"))
+                .scopes(new java.util.HashSet<>(Set.of("compile","runtime")))
                 .format(DependencyTreeFormat.FLAT)
                 .build();
 
@@ -66,7 +66,7 @@ class DependencyTreeFeatureIT {
 
         DependencyTreeOptions opts = DependencyTreeOptions.builder()
                 .include(true)
-                .scopes(Set.of("compile","runtime"))
+                .scopes(new java.util.HashSet<>(Set.of("compile","runtime")))
                 .format(DependencyTreeFormat.FLAT)
                 .build();
 

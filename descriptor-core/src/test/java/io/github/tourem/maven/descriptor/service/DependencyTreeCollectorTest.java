@@ -38,7 +38,7 @@ class DependencyTreeCollectorTest {
 
         DependencyTreeOptions opts = DependencyTreeOptions.builder()
                 .include(true)
-                .scopes(Set.of("compile","runtime"))
+                .scopes(new java.util.HashSet<>(Set.of("compile","runtime")))
                 .format(DependencyTreeFormat.FLAT)
                 .includeOptional(false)
                 .build();
@@ -68,7 +68,7 @@ class DependencyTreeCollectorTest {
 
         DependencyTreeOptions opts = DependencyTreeOptions.builder()
                 .include(true)
-                .scopes(Set.of("COMPILE","RUNTIME")) // will be normalized by collector
+                .scopes(new java.util.HashSet<>(Set.of("COMPILE","RUNTIME"))) // will be normalized by collector
                 .format(DependencyTreeFormat.TREE)
                 .build();
 
@@ -90,7 +90,7 @@ class DependencyTreeCollectorTest {
 
         DependencyTreeOptions opts = DependencyTreeOptions.builder()
                 .include(true)
-                .scopes(Set.of("compile","runtime"))
+                .scopes(new java.util.HashSet<>(Set.of("compile","runtime")))
                 .format(DependencyTreeFormat.BOTH)
                 .includeOptional(true)
                 .build();
