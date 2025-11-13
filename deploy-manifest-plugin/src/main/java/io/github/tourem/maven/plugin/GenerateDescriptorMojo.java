@@ -15,6 +15,13 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectHelper;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.project.ProjectBuilder;
+import org.apache.maven.project.ProjectBuildingRequest;
+import org.apache.maven.project.DefaultProjectBuildingRequest;
+import org.apache.maven.shared.dependency.graph.DependencyGraphBuilder;
+import org.apache.maven.shared.dependency.graph.DependencyGraphBuilderException;
+import org.apache.maven.artifact.Artifact;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +30,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.*;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -58,6 +66,18 @@ public class GenerateDescriptorMojo extends AbstractMojo {
      */
     @Parameter(defaultValue = "${project}", readonly = true, required = true)
     private MavenProject project;
+
+    /** Maven runtime session */
+    @Parameter(defaultValue = "${session}", readonly = true)
+    private MavenSession session;
+
+    /** Project builder (fallback when module not in session) */
+    @Component
+    private ProjectBuilder projectBuilder;
+
+    /** Dependency graph builder for resolving transitive dependencies */
+    @Component
+    private DependencyGraphBuilder dependencyGraphBuilder;
 
     /**
      * Maven project helper for attaching artifacts.
@@ -317,6 +337,17 @@ public class GenerateDescriptorMojo extends AbstractMojo {
 
             // Configure ObjectMapper
             ObjectMapper jsonMapper = new ObjectMapper();
+            // Enrich dependencies with resolved transitive tree for HTML if enabled
+            var dtOptions = dtOptionsBuilder.build();
+            if (dtOptions.isInclude() && !excludeTransitive) {
+                try {
+                    enrichDependencyTrees(descriptor, dtOptions);
+                } catch (Exception e) {
+                    getLog().warn("Failed to resolve transitive dependencies for tree view: " + e.getMessage());
+                    getLog().debug("Tree resolution error details", e);
+                }
+            }
+
             jsonMapper.findAndRegisterModules();
             jsonMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
             if (prettyPrint) {
@@ -906,6 +937,29 @@ public class GenerateDescriptorMojo extends AbstractMojo {
         // Section Headers
         html.append("    .section-header { font-size: 1.4em; font-weight: bold; color: #333; margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }\n");
 
+        // Dependency Tree (collapsible)
+        html.append("    .dep-tree ul { list-style: none; margin: 6px 0 6px 14px; padding-left: 14px; border-left: 1px dashed #e0e0f0; }\n");
+        html.append("    .dep-tree .dep-node { margin: 4px 0; }\n");
+        html.append("    .dep-tree .dep-node.collapsed > ul { display: none; }\n");
+        html.append("    .dep-tree .tree-toggle { display: inline-block; width: 18px; color: #667eea; cursor: pointer; user-select: none; margin-right: 6px; }\n");
+        html.append("    .dep-tree .dep-label { color: #333; }\n");
+
+        html.append("    /* Scope badges, highlights, quick filters */\n");
+        html.append("    .scope-badge { display:inline-block; padding:2px 6px; border-radius:10px; font-size:0.85em; color:#fff; margin-left:6px; vertical-align:middle; }\n");
+        html.append("    .scope-compile { background:#4caf50; }\n");
+        html.append("    .scope-runtime { background:#ff9800; }\n");
+        html.append("    .scope-test { background:#9c27b0; }\n");
+        html.append("    .scope-provided { background:#607d8b; }\n");
+        html.append("    .scope-system { background:#795548; }\n");
+        html.append("    .scope-import { background:#3f51b5; }\n");
+        html.append("    mark.hl { background:#ffe08a; padding:0 2px; border-radius:2px; }\n");
+        html.append("    .current-match { box-shadow: 0 0 0 2px #f39c12 inset; border-radius:4px; }\n");
+        html.append("    .quick-filters { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }\n");
+        html.append("    .filter-chip { padding:6px 10px; border-radius:16px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer; font-size:0.9em; }\n");
+        html.append("    .filter-chip.active { background:#667eea; color:#fff; border-color:#667eea; }\n");
+        html.append("    body.dark-mode mark.hl { background:#665200; }\n");
+        html.append("    body.dark-mode .filter-chip { background:#0f3460; border-color:#2a2a3e; color:#e0e0e0; }\n");
+        html.append("    body.dark-mode .filter-chip.active { background:#4953c8; border-color:#4953c8; color:#fff; }\n");
         // Empty State
         html.append("    .empty-state { text-align: center; padding: 60px 20px; color: #999; }\n");
         html.append("    .empty-state-icon { font-size: 4em; margin-bottom: 20px; opacity: 0.3; }\n");
@@ -925,6 +979,10 @@ public class GenerateDescriptorMojo extends AbstractMojo {
         html.append("    body.dark-mode .module-card { background: #1a1a2e; border-color: #2a2a3e; }\n");
         html.append("    body.dark-mode .module-title { color: #e0e0e0; }\n");
         html.append("    body.dark-mode .info-label { color: #a0a0a0; }\n");
+        html.append("    body.dark-mode .dep-tree ul { border-left-color: #2a2a3e; }\n");
+        html.append("    body.dark-mode .dep-tree .dep-label { color: #e0e0e0; }\n");
+        html.append("    body.dark-mode .dep-tree .tree-toggle { color: #a0a0ff; }\n");
+
         html.append("    body.dark-mode .info-value { color: #e0e0e0; }\n");
         html.append("    body.dark-mode .section-header { color: #e0e0e0; border-bottom-color: #2a2a3e; }\n");
         html.append("    body.dark-mode table { background: #1a1a2e; }\n");
@@ -974,11 +1032,13 @@ public class GenerateDescriptorMojo extends AbstractMojo {
 
         // Tabs Navigation
         html.append("    <div class=\"tabs\">\n");
-        html.append("      <button class=\"tab active\" onclick=\"showTab('overview')\">📊 Overview</button>\n");
-        html.append("      <button class=\"tab\" onclick=\"showTab('build')\">🔨 Build Info</button>\n");
-        html.append("      <button class=\"tab\" onclick=\"showTab('modules')\">📦 Modules</button>\n");
-        html.append("      <button class=\"tab\" onclick=\"showTab('environments')\">🌍 Environments</button>\n");
-        html.append("      <button class=\"tab\" onclick=\"showTab('assemblies')\">📚 Assemblies</button>\n");
+        html.append("      <button class=\"tab active\" onclick=\"showTab(this, 'overview')\">📊 Overview</button>\n");
+        html.append("      <button class=\"tab\" onclick=\"showTab(this, 'build')\">🔨 Build Info</button>\n");
+        html.append("      <button class=\"tab\" onclick=\"showTab(this, 'modules')\">📦 Modules</button>\n");
+        html.append("      <button class=\"tab\" onclick=\"showTab(this, 'dependencies')\">🧩 Dependencies</button>\n");
+
+        html.append("      <button class=\"tab\" onclick=\"showTab(this, 'environments')\">🌍 Environments</button>\n");
+        html.append("      <button class=\"tab\" onclick=\"showTab(this, 'assemblies')\">📚 Assemblies</button>\n");
         html.append("    </div>\n");
 
         // Tab 1: Overview
@@ -1311,7 +1371,7 @@ public class GenerateDescriptorMojo extends AbstractMojo {
 
 
                 // Dependencies section (interactive) if available
-                if (module.getDependencies() != null) {
+                if (false && module.getDependencies() != null) {
                     var deps = module.getDependencies();
                     var summary = deps.getSummary();
                     String moduleId = module.getArtifactId().replaceAll("[^A-Za-z0-9_-]", "_");
@@ -1368,6 +1428,15 @@ public class GenerateDescriptorMojo extends AbstractMojo {
 d af f CSV</button>\\n");
                     */
                     /*
+                    if (hasTree) {
+                        html.append("          <button type=\"button\" onclick=\"expandAll('")
+                            .append(moduleId)
+                            .append("')\" style=\"padding:8px 12px; border-radius:6px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer;\">Expand all</button>\n");
+                        html.append("          <button type=\"button\" onclick=\"collapseAll('")
+                            .append(moduleId)
+                            .append("')\" style=\"padding:8px 12px; border-radius:6px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer;\">Collapse all</button>\n");
+                    }
+
 
                     html.append("          <button type=\"button\" onclick=\"exportCsv('")
                         .append(moduleId)
@@ -1437,27 +1506,12 @@ d af f CSV</button>\\n");
 
                     // Tree view (top-level only for now)
                     if (hasTree) {
-                        html.append("        <div id=\"dep-tree-").append(moduleId).append("\" style=\"");
+                        html.append("        <div id='dep-tree-").append(moduleId).append("' class='dep-tree' style='");
                         if (!"tree".equals(defaultView)) html.append("display:none;");
                         html.append("\">\n");
                         html.append("          <ul style=\"padding-left:18px;\">\n");
                         for (var n : deps.getTree()) {
-                            String scope = n.getScope()==null?"":n.getScope();
-                            String ga = (n.getGroupId()==null?"":n.getGroupId()) + ":" + (n.getArtifactId()==null?"":n.getArtifactId());
-                            String version = n.getVersion()==null?"":n.getVersion();
-                            String type = n.getType()==null?"":n.getType();
-                            String optional = n.isOptional()?"true":"false";
-                            html.append("            <li class=\"dep-node\" data-module=\"").append(moduleId)
-                                .append("\" data-ga=\"").append(escapeHtml(ga))
-                                .append("\" data-scope=\"").append(escapeHtml(scope))
-                                .append("\" data-version=\"").append(escapeHtml(version))
-                                .append("\" data-type=\"").append(escapeHtml(type))
-                                .append("\" data-optional=\"").append(optional)
-                                .append("\" data-depth=\"1\">");
-                            html.append(escapeHtml(ga)).append(":");
-                            html.append(" <code>").append(escapeHtml(version)).append("</code>");
-                            html.append(" [").append(escapeHtml(scope)).append("]");
-                            html.append("</li>\n");
+                            appendTreeNodeHtml(html, n, moduleId, 1);
                         }
                         html.append("          </ul>\n");
                         html.append("        </div>\n");
@@ -1475,8 +1529,179 @@ d af f CSV</button>\\n");
             html.append("        <div class=\"empty-state-icon\">📦</div>\n");
             html.append("        <p>No deployable modules found</p>\n");
             html.append("      </div>\n");
+
         }
         html.append("    </div>\n");
+        // Tab 3b: Dependencies (per deployable module)
+        html.append("    <div id=\"dependencies\" class=\"tab-content\">\n");
+        if (descriptor.deployableModules() != null && !descriptor.deployableModules().isEmpty()) {
+            descriptor.deployableModules().forEach(module -> {
+                if (module.getDependencies() != null) {
+                    var deps = module.getDependencies();
+                    var summary = deps.getSummary();
+                    String moduleId = module.getArtifactId().replaceAll("[^A-Za-z0-9_-]", "_");
+
+                    html.append("      <div class=\"module-card\">\n");
+                    html.append("        <div class=\"module-header\">\n");
+                    html.append("          <div class=\"module-title\">");
+                    html.append("🧩 Dependencies — ").append(escapeHtml(module.getArtifactId()));
+                    html.append("</div>\n");
+                    html.append("          <div class=\"module-badges\">\n");
+                    html.append("            <span class=\"badge badge-").append(module.getPackaging()).append("\">")
+                        .append(module.getPackaging().toUpperCase()).append("</span>\n");
+                    html.append("          </div>\n");
+                    html.append("        </div>\n");
+
+                    // Summary cards
+                    html.append("        <div class=\"info-grid\">\n");
+                    if (summary != null) {
+                        html.append("          <div class=\"info-item\">\n");
+                        html.append("            <div class=\"info-label\">Total</div>\n");
+                        html.append("            <div class=\"info-value\"><strong>").append(summary.getTotal()).append("</strong></div>\n");
+                        html.append("          </div>\n");
+                        html.append("          <div class=\"info-item\">\n");
+                        html.append("            <div class=\"info-label\">Direct</div>\n");
+                        html.append("            <div class=\"info-value\"><strong>").append(summary.getDirect()).append("</strong></div>\n");
+                        html.append("          </div>\n");
+                        html.append("          <div class=\"info-item\">\n");
+                        html.append("            <div class=\"info-label\">Transitive</div>\n");
+                        html.append("            <div class=\"info-value\"><strong>").append(summary.getTransitive()).append("</strong></div>\n");
+                        html.append("          </div>\n");
+                        html.append("          <div class=\"info-item\">\n");
+                        html.append("            <div class=\"info-label\">Optional</div>\n");
+                        html.append("            <div class=\"info-value\"><strong>").append(summary.getOptional()).append("</strong></div>\n");
+                        html.append("          </div>\n");
+                    }
+                    html.append("        </div>\n");
+
+                    // Controls
+                    boolean hasFlat = deps.getFlat() != null && !deps.getFlat().isEmpty();
+                    boolean hasTree = deps.getTree() != null && !deps.getTree().isEmpty();
+                    String defaultView = hasFlat ? "flat" : (hasTree ? "tree" : "flat");
+
+                    html.append("        <div id=\"dep-section-").append(moduleId).append("\" style=\"margin: 10px 0 5px 0;\">\n");
+                    // Search
+                    html.append("          <input id=\"dep-search-").append(moduleId).append("\" type=\"text\" placeholder=\"Search group:artifact or version...\" style=\"padding:8px; width:260px; margin-right:8px;\">");
+                    html.append("          <button id=\"dep-prev-").append(moduleId).append("\" type=\"button\" onclick=\"depPrev('").append(moduleId).append("')\" style=\"padding:6px 10px; border-radius:6px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer; margin-right:4px;\">⟨ Prev</button>");
+                    html.append("          <button id=\"dep-next-").append(moduleId).append("\" type=\"button\" onclick=\"depNext('").append(moduleId).append("')\" style=\"padding:6px 10px; border-radius:6px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer; margin-right:8px;\">Next ⟩</button>");
+                    html.append("          <span id=\"dep-count-").append(moduleId).append("\" style=\"color:#666; margin-right:12px;\"></span>\n");
+                    // Depth
+                    html.append("          <label style=\"margin-right:6px;\">Depth</label><input id=\"dep-depth-").append(moduleId).append("\" type=\"number\" min=\"-1\" value=\"-1\" style=\"width:68px; padding:6px; margin-right:12px;\">\n");
+                    // View select
+                    html.append("          <label style=\"margin-right:6px;\">View</label><select id=\"dep-view-").append(moduleId).append("\" style=\"padding:8px; margin-right:12px;\">");
+                    if (hasFlat) html.append("<option value=\"flat\" ").append("flat".equals(defaultView)?"selected":"").append(">Flat</option>");
+                    if (hasTree) html.append("<option value=\"tree\" ").append("tree".equals(defaultView)?"selected":"").append(">Tree</option>");
+                    html.append("</select>\n");
+                    // Expand/Collapse for tree
+                    if (hasTree) {
+                        html.append("          <button type=\"button\" onclick=\"expandAll('")
+                            .append(moduleId)
+                            .append("')\" style=\"padding:8px 12px; border-radius:6px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer;\">Expand all</button>\n");
+                        html.append("          <button type=\"button\" onclick=\"collapseAll('")
+                            .append(moduleId)
+                            .append("')\" style=\"padding:8px 12px; border-radius:6px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer;\">Collapse all</button>\n");
+                    }
+                    // Quick filters (families)
+                    html.append("          <div class=\"quick-filters\" id=\"dep-quick-").append(moduleId).append("\">\n");
+                    html.append("            <span style=\"opacity:0.8;\">Quick filters:</span>\n");
+                    html.append("            <button type=\"button\" class=\"filter-chip\" data-prefix=\"org.springframework\" onclick=\"toggleQuickFilterFromBtn(this,'org.springframework')\">Spring</button>\n");
+                    html.append("            <button type=\"button\" class=\"filter-chip\" data-prefix=\"com.fasterxml.jackson\" onclick=\"toggleQuickFilterFromBtn(this,'com.fasterxml.jackson')\">Jackson</button>\n");
+                    html.append("            <button type=\"button\" class=\"filter-chip\" data-prefix=\"org.hibernate\" onclick=\"toggleQuickFilterFromBtn(this,'org.hibernate')\">Hibernate</button>\n");
+                    html.append("            <button type=\"button\" class=\"filter-chip\" data-prefix=\"io.quarkus\" onclick=\"toggleQuickFilterFromBtn(this,'io.quarkus')\">Quarkus</button>\n");
+                    html.append("            <button type=\"button\" class=\"filter-chip\" data-prefix=\"io.micronaut\" onclick=\"toggleQuickFilterFromBtn(this,'io.micronaut')\">Micronaut</button>\n");
+                    html.append("            <button type=\"button\" class=\"filter-chip\" data-prefix=\"org.apache.commons\" onclick=\"toggleQuickFilterFromBtn(this,'org.apache.commons')\">Apache Commons</button>\n");
+                    html.append("            <button type=\"button\" class=\"filter-chip\" data-prefix=\"com.google.guava\" onclick=\"toggleQuickFilterFromBtn(this,'com.google.guava')\">Guava</button>\n");
+                    html.append("            <button type=\"button\" class=\"filter-chip\" data-prefix=\"io.netty\" onclick=\"toggleQuickFilterFromBtn(this,'io.netty')\">Netty</button>\n");
+                    html.append("            <button type=\"button\" class=\"filter-chip\" data-prefix=\"org.slf4j\" onclick=\"toggleQuickFilterFromBtn(this,'org.slf4j')\">SLF4J</button>\n");
+                    html.append("            <button type=\"button\" class=\"filter-chip\" data-prefix=\"ch.qos.logback\" onclick=\"toggleQuickFilterFromBtn(this,'ch.qos.logback')\">Logback</button>\n");
+                    html.append("            <button type=\"button\" class=\"filter-chip\" data-prefix=\"junit\" onclick=\"toggleQuickFilterFromBtn(this,'junit')\">JUnit</button>\n");
+                    html.append("            <button type=\"button\" class=\"filter-chip clear\" onclick=\"clearQuickFiltersFromBtn(this)\">Clear</button>\n");
+                    html.append("          </div>\n");
+                    // CSV export
+                    html.append("          <button type=\"button\" onclick=\"exportCsv('")
+                        .append(moduleId)
+                        .append("')\" style=\"padding:8px 12px; border-radius:6px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer;\">CSV</button>\n");
+
+                    // Scope filters
+                    if (summary != null && summary.getScopes() != null && !summary.getScopes().isEmpty()) {
+                        html.append("          <div style=\"margin-top:10px; display:flex; gap:12px; flex-wrap:wrap;\">\n");
+                        for (var e : summary.getScopes().entrySet()) {
+                            String scope = e.getKey();
+                            int count = e.getValue() == null ? 0 : e.getValue();
+                            String cbId = "dep-scope-" + moduleId + "-" + scope;
+                            html.append("            <label for=\"").append(cbId).append("\" style=\"user-select:none;\">");
+                            html.append("<input type=\"checkbox\" id=\"").append(cbId).append("\" data-scope-check=\"").append(moduleId).append("\" value=\"").append(scope).append("\" checked style=\"margin-right:6px;\">");
+                            html.append(escapeHtml(scope)).append(" (<strong>").append(count).append("</strong>)");
+                            html.append("</label>\n");
+                        }
+                        html.append("          </div>\n");
+                    }
+                    html.append("        </div>\n");
+
+                    // Flat table
+                    if (hasFlat) {
+                        html.append("        <div id=\"dep-flat-").append(moduleId).append("\" class=\"table-container\" style=\"");
+                        if (!"flat".equals(defaultView)) html.append("display:none;");
+                        html.append("\">\n");
+                        html.append("          <table id=\"dep-table-").append(moduleId).append("\">\n");
+                        html.append("            <tr><th>Group</th><th>Artifact</th><th>Version</th><th>Scope</th><th>Type</th><th>Optional</th><th>Depth</th></tr>\n");
+                        for (var d : deps.getFlat()) {
+                            String ga = (d.getGroupId()==null?"":d.getGroupId()) + ":" + (d.getArtifactId()==null?"":d.getArtifactId());
+                            String scope = d.getScope()==null?"":d.getScope();
+                            String version = d.getVersion()==null?"":d.getVersion();
+                            String type = d.getType()==null?"":d.getType();
+                            String optional = d.isOptional()?"true":"false";
+                            int depth = d.getDepth()==null?1:d.getDepth();
+                            html.append("            <tr class=\"dep-row\" data-module=\"").append(moduleId)
+                                .append("\" data-ga=\"").append(escapeHtml(ga))
+                                .append("\" data-scope=\"").append(escapeHtml(scope))
+                                .append("\" data-version=\"").append(escapeHtml(version))
+                                .append("\" data-type=\"").append(escapeHtml(type))
+                                .append("\" data-optional=\"").append(optional)
+                                .append("\" data-depth=\"").append(String.valueOf(depth)).append("\">\n");
+                            html.append("              <td>").append(escapeHtml(d.getGroupId())).append("</td>\n");
+                            html.append("              <td><strong>").append(escapeHtml(d.getArtifactId())).append("</strong></td>\n");
+                            html.append("              <td><code>").append(escapeHtml(version)).append("</code></td>\n");
+                            html.append("              <td>").append(escapeHtml(scope)).append("</td>\n");
+                            html.append("              <td>").append(escapeHtml(type)).append("</td>\n");
+                            html.append("              <td>").append(d.isOptional()?"✅":"-").append("</td>\n");
+                            html.append("              <td>").append(String.valueOf(depth)).append("</td>\n");
+                            html.append("            </tr>\n");
+                        }
+                        html.append("          </table>\n");
+                        html.append("        </div>\n");
+                        // Duplicates area
+                        html.append("        <div id=\"dep-dupes-").append(moduleId).append("\" style=\"font-size:0.95em; color:#555; margin-top:6px;\"></div>\n");
+                    }
+
+                    // Tree view
+                    if (hasTree) {
+                        html.append("        <div id='dep-tree-").append(moduleId).append("' class='dep-tree' style='");
+                        if (!"tree".equals(defaultView)) html.append("display:none;");
+                        html.append("'>\n");
+                        html.append("          <ul style=\"padding-left:18px;\">\n");
+                        for (var n : deps.getTree()) {
+                            appendTreeNodeHtml(html, n, moduleId, 1);
+                        }
+                        html.append("          </ul>\n");
+                        html.append("        </div>\n");
+                    }
+
+                    // Register for JS init
+                    html.append("        <script>window.DEP_SECTIONS = window.DEP_SECTIONS || []; window.DEP_SECTIONS.push('")
+                        .append(moduleId).append("');</script>\n");
+
+                    html.append("      </div>\n"); // module-card end
+                }
+            });
+        } else {
+            html.append("      <div class=\"empty-state\">\n");
+            html.append("        <div class=\"empty-state-icon\">📦</div>\n");
+            html.append("        <p>No deployable modules found</p>\n");
+            html.append("      </div>\n");
+        }
+        html.append("    </div>\n");
+
 
         // Tab 4: Environments
         html.append("    <div id=\"environments\" class=\"tab-content\">\n");
@@ -1579,7 +1804,7 @@ d af f CSV</button>\\n");
         html.append("  </div>\n");
         html.append("  <script>\n");
         html.append("    // Tab navigation\n");
-        html.append("    function showTab(tabName) {\n");
+        html.append("    function showTab(btn, tabName) {\n");
         html.append("      // Hide all tab contents\n");
         html.append("      const contents = document.querySelectorAll('.tab-content');\n");
         html.append("      contents.forEach(content => content.classList.remove('active'));\n");
@@ -1587,12 +1812,13 @@ d af f CSV</button>\\n");
         html.append("      // Remove active class from all tabs\n");
         html.append("      const tabs = document.querySelectorAll('.tab');\n");
         html.append("      tabs.forEach(tab => tab.classList.remove('active'));\n");
+
         html.append("      \n");
         html.append("      // Show selected tab content\n");
         html.append("      document.getElementById(tabName).classList.add('active');\n");
         html.append("      \n");
         html.append("      // Add active class to clicked tab\n");
-        html.append("      event.target.classList.add('active');\n");
+        html.append("      btn.classList.add('active');\n");
         html.append("    }\n");
         html.append("    \n");
         html.append("    // Theme toggle\n");
@@ -1617,11 +1843,33 @@ d af f CSV</button>\\n");
     html.append("    // Dependencies UI\n");
     html.append("    function byId(id){ return document.getElementById(id); }\n");
     html.append("    function setDepView(modId){ const sel=byId('dep-view-'+modId); if(!sel) return; const v=sel.value; const flat=byId('dep-flat-'+modId); const tree=byId('dep-tree-'+modId); if(flat) flat.style.display=(v==='flat')?'':'none'; if(tree) tree.style.display=(v==='tree')?'':'none'; }\n");
+    html.append("    function toggleTreeNode(el){ const li=el.closest('.dep-node'); if(!li) return; const c=li.classList.toggle('collapsed'); el.textContent=c?'\u25b8':'\u25be'; }\n");
+    html.append("    function expandAll(modId){ document.querySelectorAll('#dep-tree-'+modId+' .dep-node.has-children').forEach(li=>{ li.classList.remove('collapsed'); const t=li.querySelector(':scope > .tree-toggle'); if(t) t.textContent='\u25be'; }); }\n");
+    html.append("    function collapseAll(modId){ document.querySelectorAll('#dep-tree-'+modId+' .dep-node.has-children').forEach(li=>{ li.classList.add('collapsed'); const t=li.querySelector(':scope > .tree-toggle'); if(t) t.textContent='\u25b8'; }); }\n");
+    html.append("    function initTreeCollapse(modId){ document.querySelectorAll('#dep-tree-'+modId+' .dep-node.has-children').forEach(li=>{ const depth=parseInt(li.dataset.depth||'1',10); const t=li.querySelector(':scope > .tree-toggle'); if(depth>1){ li.classList.add('collapsed'); if(t) t.textContent='\u25b8'; } else { if(t) t.textContent='\u25be'; } }); }\n");
+
+    html.append("    window.DEP_QUICK=window.DEP_QUICK||{}; window.DEP_NAV=window.DEP_NAV||{};\n");
+    html.append("    function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&'); }\n");
+    html.append("    function clearHighlights(root){ if(!root) return; const sels=['.dep-label','td:nth-child(1)','td:nth-child(2)','td:nth-child(3)']; sels.forEach(sel=>{ root.querySelectorAll(sel).forEach(el=>{ if(el.dataset && el.dataset.orig){ el.innerHTML=el.dataset.orig; } }); }); }\n");
+    html.append("    function applyHighlights(root, term){ if(!root||!term) return; const re=new RegExp(escapeRegExp(term),'gi'); const sels=['.dep-label','td:nth-child(1)','td:nth-child(2)','td:nth-child(3)']; sels.forEach(sel=>{ root.querySelectorAll(sel).forEach(el=>{ if(!el.dataset) el.dataset={}; if(!el.dataset.orig) el.dataset.orig=el.innerHTML; el.innerHTML=el.dataset.orig.replace(re, m=>'<mark class=\\\'hl\\\'>'+m+'</mark>'); }); }); }\n");
+    html.append("    function highlightAll(modId, term){ const flat=byId('dep-table-'+modId); const tree=byId('dep-tree-'+modId); [flat,tree].forEach(root=>{ if(!root) return; if(term){ applyHighlights(root, term);} else { clearHighlights(root);} }); }\n");
+    html.append("    function updatePrevNextButtons(modId){ const nav=(window.DEP_NAV||{})[modId]; const prev=byId('dep-prev-'+modId), next=byId('dep-next-'+modId); const has=!!(nav&&nav.list&&nav.list.length>0); if(prev) prev.disabled=!has; if(next) next.disabled=!has; }\n");
+    html.append("    function focusCurrentMatch(modId){ const nav=(window.DEP_NAV||{})[modId]; if(!nav||!nav.list||!nav.list.length) return; document.querySelectorAll('#dep-table-'+modId+' tr.current-match').forEach(e=>e.classList.remove('current-match')); document.querySelectorAll('#dep-tree-'+modId+' .dep-label.current-match').forEach(e=>e.classList.remove('current-match')); const el=nav.list[nav.idx]; if(!el) return; if(nav.view==='flat'){ el.classList.add('current-match'); el.scrollIntoView({block:'center'});} else { const lab=el.querySelector(':scope > .dep-label'); if(lab){ lab.classList.add('current-match'); lab.scrollIntoView({block:'center'});} else { el.classList.add('current-match'); el.scrollIntoView({block:'center'});} } }\n");
+    html.append("    function collectMatchesAndUpdateNav(modId, term){ const v=(byId('dep-view-'+modId)?.value)||'flat'; let list=[]; if(v==='flat'){ list=Array.from(document.querySelectorAll('#dep-table-'+modId+' tr.dep-row')).filter(r=>r.style.display!=='none' && (!term || r.dataset.match==='1')); } else { list=Array.from(document.querySelectorAll('#dep-tree-'+modId+' .dep-node')).filter(li=>li.style.display!== 'none' && (!term || li.dataset.match==='1')); } (window.DEP_NAV||(window.DEP_NAV={}))[modId]={list:list, idx:list.length?0:-1, view:v}; const countEl=byId('dep-count-'+modId); if(countEl) countEl.textContent = term? (list.length+' match'+(list.length>1?'es':'')) : ''; updatePrevNextButtons(modId); focusCurrentMatch(modId); }\n");
+    html.append("    function depNext(modId){ const nav=(window.DEP_NAV||{})[modId]; if(!nav||!nav.list||!nav.list.length) return; nav.idx=(nav.idx+1)%nav.list.length; focusCurrentMatch(modId); }\n");
+    html.append("    function depPrev(modId){ const nav=(window.DEP_NAV||{})[modId]; if(!nav||!nav.list||!nav.list.length) return; nav.idx=(nav.idx-1+nav.list.length)%nav.list.length; focusCurrentMatch(modId); }\n");
+    html.append("    function toggleQuickFilter(modId, prefix, btn){ window.DEP_QUICK=window.DEP_QUICK||{}; const set=(window.DEP_QUICK[modId]||(window.DEP_QUICK[modId]=new Set())); if(set.has(prefix)){ set.delete(prefix); if(btn) btn.classList.remove('active'); } else { set.add(prefix); if(btn) btn.classList.add('active'); } filterDependencies(modId); }\n");
+    html.append("    function clearQuickFilters(modId){ const c=byId('dep-quick-'+modId); if(c){ c.querySelectorAll('.filter-chip.active').forEach(b=>b.classList.remove('active')); } if(window.DEP_QUICK&&window.DEP_QUICK[modId]) window.DEP_QUICK[modId].clear(); filterDependencies(modId); }\n");
+    html.append("    function toggleQuickFilterFromBtn(btn, prefix){ const wrap=btn.closest('.quick-filters'); if(!wrap) return; const modId=(wrap.id||'').replace('dep-quick-',''); toggleQuickFilter(modId, prefix, btn); }\n");
+    html.append("    function clearQuickFiltersFromBtn(btn){ const wrap=btn.closest('.quick-filters'); if(!wrap) return; const modId=(wrap.id||'').replace('dep-quick-',''); clearQuickFilters(modId); }\n");
+
     html.append("    function filterDependencies(modId){\n");
     html.append("      const term=(byId('dep-search-'+modId)?.value||'').toLowerCase();\n");
     html.append("      const depthLimit=parseInt(byId('dep-depth-'+modId)?.value||'-1',10);\n");
     html.append("      const scopesSel=document.querySelectorAll('input[data-scope-check=\\''+modId+'\\']:checked');\n");
     html.append("      const selected=new Set(Array.from(scopesSel).map(cb=>cb.value));\n");
+
+    html.append("      window.DEP_QUICK=window.DEP_QUICK||{}; const famSel = Array.from(window.DEP_QUICK[modId]||[]);\n");
     html.append("      const rows=document.querySelectorAll('#dep-table-'+modId+' tr.dep-row');\n");
     html.append("      rows.forEach(row=>{\n");
     html.append("        const ga=(row.dataset.ga||'').toLowerCase();\n");
@@ -1632,6 +1880,8 @@ d af f CSV</button>\\n");
     html.append("        if(selected.size>0 && !selected.has(scope)) ok=false;\n");
     html.append("        if(depthLimit>=0 && depth>depthLimit) ok=false;\n");
     html.append("        if(term && !(ga.includes(term)||ver.includes(term))) ok=false;\n");
+    html.append("        if(famSel.length>0 && !famSel.some(p=>ga.startsWith(p))) ok=false;\n");
+    html.append("        row.dataset.match = (ok && term && (ga.includes(term)||ver.includes(term))) ? '1' : '';\n");
     html.append("        row.style.display=ok?'':'none';\n");
     html.append("      });\n");
     html.append("      const dupesEl=byId('dep-dupes-'+modId);\n");
@@ -1642,15 +1892,46 @@ d af f CSV</button>\\n");
     html.append("        const entries=Object.entries(map).filter(([ga,set])=>set.size>1);\n");
     html.append("        if(entries.length){ dupesEl.innerHTML='⚠️ Duplicates detected: '+entries.map(([ga,set])=>ga+' → '+Array.from(set).join(', ')).join(' | '); } else { dupesEl.innerHTML=''; }\n");
     html.append("      }\n");
-    html.append("      const nodes=document.querySelectorAll('#dep-tree-'+modId+' .dep-node');\n");
-    html.append("      nodes.forEach(li=>{ const ga=(li.dataset.ga||'').toLowerCase(); const ver=(li.dataset.version||'').toLowerCase(); const scope=(li.dataset.scope||''); const depth=parseInt(li.dataset.depth||'1',10); let show=true; if(selected.size>0 && !selected.has(scope)) show=false; if(depthLimit>=0 && depth>depthLimit) show=false; if(term && !(ga.includes(term)||ver.includes(term))) show=false; li.style.display=show?'':'none'; });\n");
+    html.append("      const treeRoot=document.querySelector('#dep-tree-'+modId);\n");
+    html.append("      const nodes=Array.from(document.querySelectorAll('#dep-tree-'+modId+' .dep-node'));\n");
+    html.append("      nodes.forEach(li=>{\n");
+    html.append("        const ga=(li.dataset.ga||'').toLowerCase();\n");
+    html.append("        const ver=(li.dataset.version||'').toLowerCase();\n");
+    html.append("        const scope=(li.dataset.scope||'');\n");
+    html.append("        const depth=parseInt(li.dataset.depth||'1',10);\n");
+    html.append("        let ok=true;\n");
+    html.append("        if(selected.size>0 && !selected.has(scope)) ok=false;\n");
+    html.append("        if(depthLimit>=0 && depth>depthLimit) ok=false;\n");
+    html.append("        if(term && !(ga.includes(term)||ver.includes(term))) ok=false;\n");
+    html.append("        if(famSel.length>0 && !famSel.some(p=>ga.startsWith(p))) ok=false;\n");
+    html.append("        li.dataset.match=ok?'1':'';\n");
+    html.append("      });\n");
+    html.append("      nodes.forEach(li=>{\n");
+    html.append("        let show = li.dataset.match==='1' || !!li.querySelector('.dep-node[data-match=\"1\"]');\n");
+    html.append("        li.style.display=show?'':'none';\n");
+    html.append("        if(show && term){\n");
+    html.append("          let p=li.parentElement;\n");
+    html.append("          while(p && p!==treeRoot){\n");
+    html.append("            if(p.matches && p.matches('ul')){\n");
+    html.append("              const pli=p.closest('.dep-node');\n");
+    html.append("              if(pli){\n");
+    html.append("                pli.classList.remove('collapsed');\n");
+    html.append("                const t=pli.querySelector(':scope > .tree-toggle');\n");
+    html.append("                if(t) t.textContent='\u25be';\n");
+    html.append("              }\n");
+    html.append("            }\n");
+    html.append("            p=p.parentElement;\n");
+    html.append("          }\n");
+    html.append("        }\n");
+    html.append("      });\n");
+    html.append("      highlightAll(modId, term); collectMatchesAndUpdateNav(modId, term);\n");
     html.append("    }\n");
     html.append("    function initDependenciesSection(modId){\n");
-    html.append("      const sel=byId('dep-view-'+modId); if(sel) sel.addEventListener('change',()=>setDepView(modId));\n");
+    html.append("      const sel=byId('dep-view-'+modId); if(sel) sel.addEventListener('change',()=>{ setDepView(modId); filterDependencies(modId); });\n");
     html.append("      const s=byId('dep-search-'+modId); if(s) s.addEventListener('input',()=>filterDependencies(modId));\n");
     html.append("      const d=byId('dep-depth-'+modId); if(d) d.addEventListener('input',()=>filterDependencies(modId));\n");
     html.append("      document.querySelectorAll('input[data-scope-check=\\''+modId+'\\']').forEach(cb=>cb.addEventListener('change',()=>filterDependencies(modId)));\n");
-    html.append("      setDepView(modId); filterDependencies(modId);\n");
+    html.append("      setDepView(modId); initTreeCollapse(modId); filterDependencies(modId);\n");
     html.append("    }\n");
     html.append("    function exportCsv(modId){\n");
     html.append("      const rows=Array.from(document.querySelectorAll('#dep-table-'+modId+' tr.dep-row')).filter(r=>r.style.display!=='none');\n");
@@ -1679,6 +1960,223 @@ d af f CSV</button>\\n");
         Files.writeString(htmlPath, html.toString(), StandardCharsets.UTF_8);
         getLog().info("✓ HTML documentation generated: " + htmlPath.toAbsolutePath());
     }
+
+    /**
+     * Build transitive dependency trees for modules using Maven's DependencyGraphBuilder
+     * and populate the descriptor's tree view (keeping existing flat view if present).
+     */
+    private void enrichDependencyTrees(ProjectDescriptor descriptor,
+                                       io.github.tourem.maven.descriptor.model.DependencyTreeOptions options)
+            throws DependencyGraphBuilderException {
+        if (descriptor == null || descriptor.deployableModules() == null || descriptor.deployableModules().isEmpty()) {
+            return;
+        }
+        if (session == null || dependencyGraphBuilder == null) {
+            getLog().debug("Dependency graph services not available; skipping tree enrichment");
+            return;
+        }
+
+        // Normalize configuration
+        final Set<String> allowedScopes = (options.getScopes() == null || options.getScopes().isEmpty())
+                ? new HashSet<>(Arrays.asList("compile", "runtime"))
+                : new HashSet<>(options.getScopes().stream().map(String::toLowerCase).toList());
+        final boolean includeOptionalDeps = options.isIncludeOptional();
+        final int depthLimit = options.getDepth(); // -1 unlimited; 0 direct only; N max depth
+
+        for (io.github.tourem.maven.descriptor.model.DeployableModule module : descriptor.deployableModules()) {
+            try {
+                // Find the MavenProject for this module in the session or build from its pom.xml
+                MavenProject moduleProject = findModuleProject(module);
+                if (moduleProject == null) {
+                    getLog().debug("Module project not found for " + module.getArtifactId() + "; skipping tree");
+                    continue;
+                }
+
+                ProjectBuildingRequest req = new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
+                req.setProject(moduleProject);
+                org.apache.maven.shared.dependency.graph.DependencyNode root =
+                        dependencyGraphBuilder.buildDependencyGraph(req, null);
+                if (root == null || root.getChildren() == null) {
+                    continue;
+                }
+
+                // Convert to our model (top-level children of root are direct deps)
+                List<io.github.tourem.maven.descriptor.model.DependencyNode> topNodes = new ArrayList<>();
+                for (org.apache.maven.shared.dependency.graph.DependencyNode child : root.getChildren()) {
+                    io.github.tourem.maven.descriptor.model.DependencyNode converted =
+                            convertNode(child, allowedScopes, includeOptionalDeps, depthLimit, 1, new HashSet<>());
+                    if (converted != null) {
+                        topNodes.add(converted);
+                    }
+                }
+
+                // Compute summary counters from built tree
+                int direct = topNodes.size();
+                SummaryCounters counters = new SummaryCounters();
+                for (io.github.tourem.maven.descriptor.model.DependencyNode n : topNodes) {
+                    accumulateCounters(n, counters);
+                }
+                int total = counters.total;
+                int transitive = Math.max(0, total - direct);
+
+                io.github.tourem.maven.descriptor.model.DependencySummary summary =
+                        io.github.tourem.maven.descriptor.model.DependencySummary.builder()
+                                .total(total)
+                                .direct(direct)
+                                .transitive(transitive)
+                                .optional(counters.optional)
+                                .scopes(counters.scopes)
+                                .build();
+
+                // Preserve existing flat entries if any
+                List<io.github.tourem.maven.descriptor.model.DependencyFlatEntry> flat = null;
+                if (module.getDependencies() != null) {
+                    flat = module.getDependencies().getFlat();
+                }
+
+                io.github.tourem.maven.descriptor.model.DependencyTreeInfo info =
+                        io.github.tourem.maven.descriptor.model.DependencyTreeInfo.builder()
+                                .summary(summary)
+                                .flat(flat)
+                                .tree(topNodes)
+                                .build();
+
+                module.setDependencies(info);
+
+            } catch (Exception ex) {
+                getLog().debug("Failed to enrich dependency tree for module " + module.getArtifactId() + ": " + ex.getMessage(), ex);
+            }
+        }
+    }
+
+    private MavenProject findModuleProject(io.github.tourem.maven.descriptor.model.DeployableModule module) throws Exception {
+        if (session != null && session.getAllProjects() != null) {
+            for (MavenProject p : session.getAllProjects()) {
+                if (Objects.equals(p.getGroupId(), module.getGroupId())
+                        && Objects.equals(p.getArtifactId(), module.getArtifactId())
+                        && Objects.equals(p.getVersion(), module.getVersion())) {
+                    return p;
+                }
+            }
+        }
+        // Fallback: build from pom.xml
+        if (projectBuilder != null && project != null && module.getModulePath() != null) {
+            File base = project.getBasedir();
+            File moduleDir = ".".equals(module.getModulePath()) ? base : new File(base, module.getModulePath());
+            File pom = new File(moduleDir, "pom.xml");
+            if (pom.isFile()) {
+                ProjectBuildingRequest req = new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
+                return projectBuilder.build(pom, req).getProject();
+            }
+        }
+        return null;
+    }
+
+    private io.github.tourem.maven.descriptor.model.DependencyNode convertNode(
+            org.apache.maven.shared.dependency.graph.DependencyNode node,
+            Set<String> allowedScopes,
+            boolean includeOptional,
+            int depthLimit,
+            int currentDepth,
+            Set<String> visited) {
+        Artifact a = node.getArtifact();
+        if (a == null) return null;
+        String scope = (a.getScope() == null || a.getScope().isEmpty()) ? "compile" : a.getScope().toLowerCase();
+        if (!allowedScopes.contains(scope)) return null;
+        boolean optional = a.isOptional();
+        if (optional && !includeOptional) return null;
+
+        String key = a.getGroupId() + ":" + a.getArtifactId() + ":" + a.getVersion();
+        if (!visited.add(key)) {
+            return null; // avoid cycles/duplicates
+        }
+
+        boolean canGoDeeper;
+        if (depthLimit < 0) {
+            canGoDeeper = true;
+        } else {
+            canGoDeeper = currentDepth < depthLimit; // depth=1 means direct
+        }
+
+        List<io.github.tourem.maven.descriptor.model.DependencyNode> children = null;
+        if (canGoDeeper && node.getChildren() != null && !node.getChildren().isEmpty()) {
+            children = new ArrayList<>();
+            for (org.apache.maven.shared.dependency.graph.DependencyNode c : node.getChildren()) {
+                io.github.tourem.maven.descriptor.model.DependencyNode cc =
+                        convertNode(c, allowedScopes, includeOptional, depthLimit, currentDepth + 1, new HashSet<>(visited));
+                if (cc != null) children.add(cc);
+            }
+            if (children.isEmpty()) children = null;
+        }
+
+        return io.github.tourem.maven.descriptor.model.DependencyNode.builder()
+                .groupId(a.getGroupId())
+                .artifactId(a.getArtifactId())
+                .version(a.getVersion())
+                .scope(scope)
+                .type(a.getType())
+                .optional(optional)
+                .children(children)
+                .build();
+    }
+
+    private static class SummaryCounters {
+        int total = 0;
+        int optional = 0;
+        Map<String, Integer> scopes = new HashMap<>();
+    }
+
+    private void accumulateCounters(io.github.tourem.maven.descriptor.model.DependencyNode n, SummaryCounters c) {
+        if (n == null) return;
+        c.total++;
+        if (n.isOptional()) c.optional++;
+        String s = n.getScope() == null ? "" : n.getScope();
+        c.scopes.put(s, c.scopes.getOrDefault(s, 0) + 1);
+        if (n.getChildren() != null) {
+            for (io.github.tourem.maven.descriptor.model.DependencyNode ch : n.getChildren()) {
+                accumulateCounters(ch, c);
+            }
+        }
+    }
+
+    private void appendTreeNodeHtml(StringBuilder html, io.github.tourem.maven.descriptor.model.DependencyNode n, String moduleId, int depth) {
+        String scope = n.getScope() == null ? "" : n.getScope();
+        String ga = (n.getGroupId() == null ? "" : n.getGroupId()) + ":" + (n.getArtifactId() == null ? "" : n.getArtifactId());
+        String version = n.getVersion() == null ? "" : n.getVersion();
+        String type = n.getType() == null ? "" : n.getType();
+        String optional = n.isOptional() ? "true" : "false";
+        boolean hasChildren = n.getChildren() != null && !n.getChildren().isEmpty();
+        html.append("            <li class=\"dep-node").append(hasChildren ? " has-children" : "")
+            .append("\" data-module=\"").append(moduleId)
+            .append("\" data-ga=\"").append(escapeHtml(ga))
+            .append("\" data-scope=\"").append(escapeHtml(scope))
+            .append("\" data-version=\"").append(escapeHtml(version))
+            .append("\" data-type=\"").append(escapeHtml(type))
+            .append("\" data-optional=\"").append(optional)
+            .append("\" data-depth=\"").append(String.valueOf(depth)).append("\">");
+        if (hasChildren) {
+            html.append("<span class=\"tree-toggle\" onclick=\"toggleTreeNode(this)\">\u25be</span>");
+        } else {
+            html.append("<span class=\"tree-toggle\" style=\"visibility:hidden\">\u2022</span>");
+        }
+        html.append("<span class=\"dep-label\">");
+        html.append(escapeHtml(ga)).append(": ");
+        html.append(" <code>").append(escapeHtml(version)).append("</code>");
+        if (!scope.isEmpty()) {
+            html.append(" <span class=\"scope-badge scope-").append(escapeHtml(scope)).append("\">")
+                .append(escapeHtml(scope)).append("</span>");
+        }
+        html.append("</span>");
+        if (hasChildren) {
+            html.append("\n              <ul>\n");
+            for (io.github.tourem.maven.descriptor.model.DependencyNode ch : n.getChildren()) {
+                appendTreeNodeHtml(html, ch, moduleId, depth + 1);
+            }
+            html.append("              </ul>\n            ");
+        }
+        html.append("</li>\n");
+    }
+
 
     /**
      * Escape HTML special characters to prevent XSS.

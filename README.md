@@ -25,7 +25,7 @@ This plugin generates a comprehensive deployment descriptor with commit SHA, con
 
 ```bash
 # One command, complete traceability
-mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.1.0:generate
 ```
 
 Generates `descriptor.json` with project/build/git metadata and module insights.
@@ -40,7 +40,7 @@ See "Example JSON output" below for a concise sample.
 | Auto-detection | Scans modules, frameworks, env configs | Zero manual setup |
 | Full traceability | Git commit/branch, CI metadata | Debug prod issues fast |
 | Docker aware | Detects Jib, Spring Boot build-image, Fabric8, Quarkus, Micronaut, JKube | Know what's containerized |
-| Dependency tree (opt) | Flat/Tree views, filters, CSV, duplicates | Understand your runtime |
+| Dependency tree (opt) | Flat/Tree, collapsible tree with highlight + Prev/Next, quick filters, CSV, duplicates, scope badges | Understand your runtime |
 | Multiple formats | JSON, YAML, HTML report | Share with all stakeholders |
 
 ## Perfect For
@@ -55,10 +55,10 @@ See "Example JSON output" below for a concise sample.
 
 ```bash
 # Single module or multi-module (run at root)
-mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.1.0:generate
 
 # With HTML report
-mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.1.0:generate -Ddescriptor.generateHtml=true
 ```
 
 ---
@@ -66,7 +66,7 @@ mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate -Ddescriptor.generate
 ## See It In Action
 
 - JSON: see the "Example JSON output" section below
-- HTML report includes: interactive dashboard, searchable dependency tree, environment configs, CSV export
+- HTML report includes: interactive dashboard, Dependencies tab per module with collapsible tree (highlight + Prev/Next, quick filters, scope badges), environment configs, CSV export
 - Screenshots:
   - ![Descriptor HTML – Overview](images/html1.jpg)
   - ![Descriptor HTML – Modules](images/html2.jpg)
@@ -78,7 +78,7 @@ mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate -Ddescriptor.generate
 Before deployment:
 ```bash
 mvn clean package
-mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.1.0:generate
 cat target/descriptor.json  # verify
 mvn deploy
 ```
@@ -134,7 +134,7 @@ Add the plugin to your project's `pom.xml`:
         <plugin>
             <groupId>io.github.tourem</groupId>
             <artifactId>deploy-manifest-plugin</artifactId>
-            <version>2.0.0</version>
+            <version>2.1.0</version>
         </plugin>
     </plugins>
 </build>
@@ -143,7 +143,7 @@ Add the plugin to your project's `pom.xml`:
 Or use it directly without adding to POM:
 
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.1.0:generate
 ```
 
 ### Basic Usage
@@ -151,7 +151,7 @@ mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate
 Generate a deployment descriptor at your project root:
 
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.1.0:generate
 ```
 
 This creates a `descriptor.json` file containing all deployment information.
@@ -162,20 +162,20 @@ The most common commands at a glance:
 
 ```bash
 # Default (descriptor.json at project root)
-mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.1.0:generate
 
 # YAML or both JSON+YAML
-mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate -Ddescriptor.exportFormat=yaml
-mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate -Ddescriptor.exportFormat=both
+mvn io.github.tourem:deploy-manifest-plugin:2.1.0:generate -Ddescriptor.exportFormat=yaml
+mvn io.github.tourem:deploy-manifest-plugin:2.1.0:generate -Ddescriptor.exportFormat=both
 
 # Generate an HTML page for non-technical stakeholders
-mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.1.0:generate -Ddescriptor.generateHtml=true
 
 # Attach a ZIP artifact for repository deployment
-mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate -Ddescriptor.format=zip -Ddescriptor.attach=true
+mvn io.github.tourem:deploy-manifest-plugin:2.1.0:generate -Ddescriptor.format=zip -Ddescriptor.attach=true
 
 # Dry-run (print summary, no files)
-mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate -Ddescriptor.summary=true
+mvn io.github.tourem:deploy-manifest-plugin:2.1.0:generate -Ddescriptor.summary=true
 ```
 
 ### Options cheat sheet
@@ -197,7 +197,7 @@ Configure the plugin to run automatically during the build:
         <plugin>
             <groupId>io.github.tourem</groupId>
             <artifactId>deploy-manifest-plugin</artifactId>
-            <version>2.0.0</version>
+            <version>2.1.0</version>
             <configuration>
                 <!-- Output file name (default: descriptor.json) -->
                 <outputFile>deployment-info.json</outputFile>
@@ -367,7 +367,7 @@ Disabled by default for backward compatibility. When enabled, dependencies are c
 
 - Quick enable (CLI):
 ```
-mvn io.github.tourem:deploy-manifest-plugin:2.0.0:generate -Ddescriptor.includeDependencyTree=true
+mvn io.github.tourem:deploy-manifest-plugin:2.1.0:generate -Ddescriptor.includeDependencyTree=true
 ```
 - Common options: `dependencyTreeDepth` (-1=unlimited, 0=direct), `dependencyScopes` (default: compile,runtime), `dependencyTreeFormat` (flat|tree|both), `includeOptional` (default: false)
 
@@ -386,7 +386,7 @@ POM configuration:
 <plugin>
   <groupId>io.github.tourem</groupId>
   <artifactId>deploy-manifest-plugin</artifactId>
-  <version>2.0.0</version>
+  <version>2.1.0</version>
   <configuration>
     <includeDependencyTree>true</includeDependencyTree>
     <dependencyTreeDepth>-1</dependencyTreeDepth>
@@ -399,8 +399,8 @@ POM configuration:
 ```
 
 Notes:
-- First iteration collects direct dependencies from the POM; transitive resolution planned next.
-- With `-Ddescriptor.generateHtml=true`, the HTML adds an interactive Dependencies section.
+- Full transitive dependency resolution is supported; hierarchical filtering keeps ancestors of matches visible.
+- With `-Ddescriptor.generateHtml=true`, the HTML adds an interactive Dependencies tab per module (Flat/Tree views, collapsible tree with highlight + Prev/Next, quick filters, scope badges).
 </details>
 
 
