@@ -1,6 +1,6 @@
 # Maven Deploy Manifest Plugin — Guide complet
 
-> Ne livrez plus des boîtes noires. Générez une source unique de vérité sur ce que vous construisez, empaquetez et déployez — automatiquement.
+> Ne livrez plus des boîtes noires. Générez une source unique de vérité sur ce que vous construisez, packagez et déployez — automatiquement.
 
 Ce guide explique comment installer, exécuter et tirer le meilleur parti de `io.github.tourem:deploy-manifest-plugin`. Vous découvrirez ses fonctionnalités, toutes les options de configuration et des recettes prêtes à copier pour les sorties JSON/YAML/HTML, avec captures d’écran et schémas.
 
@@ -35,7 +35,7 @@ Ce guide explique comment installer, exécuter et tirer le meilleur parti de `io
 Exécution sans modifier le POM :
 
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.generateHtml=true
 ```
 
 Ajout dans le POM pour des builds reproductibles :
@@ -46,7 +46,7 @@ Ajout dans le POM pour des builds reproductibles :
     <plugin>
       <groupId>io.github.tourem</groupId>
       <artifactId>deploy-manifest-plugin</artifactId>
-      <version>2.3.0</version>
+      <version>2.3.1</version>
       <executions>
         <execution>
           <id>generate-deploy-manifest</id>
@@ -140,37 +140,37 @@ Captures d’ecran :
 
 JSON minimal :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate
 ```
 
 JSON + YAML + HTML :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
 ```
 
 Arbre des dependances (Tree+Flat) avec scopes compile+runtime :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeFormat=both -Ddescriptor.dependencyScopes=compile,runtime
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeFormat=both -Ddescriptor.dependencyScopes=compile,runtime
 ```
 
 Licences avec avertissements et liste incompatible personnalisee :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.licenseWarnings=true -Ddescriptor.incompatibleLicenses=GPL-3.0,AGPL-3.0,SSPL
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.licenseWarnings=true -Ddescriptor.incompatibleLicenses=GPL-3.0,AGPL-3.0,SSPL
 ```
 
 Proprietes incluant les variables d’environnement :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.includeProperties=true -Ddescriptor.includeEnvironmentVariables=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.includeProperties=true -Ddescriptor.includeEnvironmentVariables=true
 ```
 
 Plugins avec configuration et verification des mises a jour :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.includePlugins=true -Ddescriptor.includePluginConfiguration=true -Ddescriptor.checkPluginUpdates=true -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.includePlugins=true -Ddescriptor.includePluginConfiguration=true -Ddescriptor.checkPluginUpdates=true -Ddescriptor.generateHtml=true
 ```
 
 Tout combiner :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate \
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate \
   -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true \
   -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeFormat=both \
   -Ddescriptor.includeLicenses=true -Ddescriptor.licenseWarnings=true \
@@ -183,7 +183,7 @@ Configuration POM (extrait courant) :
 <plugin>
   <groupId>io.github.tourem</groupId>
   <artifactId>deploy-manifest-plugin</artifactId>
-  <version>2.3.0</version>
+  <version>2.3.1</version>
   <configuration>
     <exportFormat>both</exportFormat>
     <generateHtml>true</generateHtml>
@@ -281,7 +281,7 @@ Plugins :
 GitHub Actions (extrait) :
 ```yaml
 - name: Generate Deploy Manifest
-  run: mvn -B io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
+  run: mvn -B io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
 - name: Upload artifacts
   uses: actions/upload-artifact@v4
   with:

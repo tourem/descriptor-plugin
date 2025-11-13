@@ -35,7 +35,7 @@ This guide explains how to install, run, and get the most out of `io.github.tour
 Run without modifying the POM:
 
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.generateHtml=true
 ```
 
 POM configuration for reproducible builds:
@@ -46,7 +46,7 @@ POM configuration for reproducible builds:
     <plugin>
       <groupId>io.github.tourem</groupId>
       <artifactId>deploy-manifest-plugin</artifactId>
-      <version>2.3.0</version>
+      <version>2.3.1</version>
       <executions>
         <execution>
           <id>generate-deploy-manifest</id>
@@ -140,37 +140,37 @@ Screenshots:
 
 Minimal JSON:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate
 ```
 
 JSON + YAML + HTML:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
 ```
 
 Dependency tree (Tree+Flat) with compile+runtime scopes:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeFormat=both -Ddescriptor.dependencyScopes=compile,runtime
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeFormat=both -Ddescriptor.dependencyScopes=compile,runtime
 ```
 
 Licenses with warnings and custom incompatible list:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.licenseWarnings=true -Ddescriptor.incompatibleLicenses=GPL-3.0,AGPL-3.0,SSPL
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.licenseWarnings=true -Ddescriptor.incompatibleLicenses=GPL-3.0,AGPL-3.0,SSPL
 ```
 
 Properties including environment variables:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.includeProperties=true -Ddescriptor.includeEnvironmentVariables=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.includeProperties=true -Ddescriptor.includeEnvironmentVariables=true
 ```
 
 Plugins with configuration and update checks:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.includePlugins=true -Ddescriptor.includePluginConfiguration=true -Ddescriptor.checkPluginUpdates=true -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.includePlugins=true -Ddescriptor.includePluginConfiguration=true -Ddescriptor.checkPluginUpdates=true -Ddescriptor.generateHtml=true
 ```
 
 Combine everything:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate \
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate \
   -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true \
   -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeFormat=both \
   -Ddescriptor.includeLicenses=true -Ddescriptor.licenseWarnings=true \
@@ -183,7 +183,7 @@ POM configuration (common excerpt):
 <plugin>
   <groupId>io.github.tourem</groupId>
   <artifactId>deploy-manifest-plugin</artifactId>
-  <version>2.3.0</version>
+  <version>2.3.1</version>
   <configuration>
     <exportFormat>both</exportFormat>
     <generateHtml>true</generateHtml>
@@ -281,7 +281,7 @@ Plugins:
 GitHub Actions (excerpt):
 ```yaml
 - name: Generate Deploy Manifest
-  run: mvn -B io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
+  run: mvn -B io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
 - name: Upload artifacts
   uses: actions/upload-artifact@v4
   with:

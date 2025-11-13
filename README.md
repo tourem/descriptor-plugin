@@ -51,7 +51,7 @@ This plugin generates a comprehensive deployment descriptor with commit SHA, con
 
 ```bash
 # One command, complete traceability
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate
 ```
 
 Generates `descriptor.json` with project/build/git metadata and module insights.
@@ -81,10 +81,10 @@ See "Example JSON output" below for a concise sample.
 
 ```bash
 # Single module or multi-module (run at root)
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate
 
 # With HTML report
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.generateHtml=true
 ```
 
 ---
@@ -104,7 +104,7 @@ mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.generate
 Before deployment:
 ```bash
 mvn clean package
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate
 cat target/descriptor.json  # verify
 mvn deploy
 ```
@@ -160,7 +160,7 @@ Add the plugin to your project's `pom.xml`:
         <plugin>
             <groupId>io.github.tourem</groupId>
             <artifactId>deploy-manifest-plugin</artifactId>
-            <version>2.3.0</version>
+            <version>2.3.1</version>
         </plugin>
     </plugins>
 </build>
@@ -169,7 +169,7 @@ Add the plugin to your project's `pom.xml`:
 Or use it directly without adding to POM:
 
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate
 ```
 
 ### Basic Usage
@@ -177,7 +177,7 @@ mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate
 Generate a deployment descriptor at your project root:
 
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate
 ```
 
 This creates a `descriptor.json` file containing all deployment information.
@@ -188,20 +188,20 @@ The most common commands at a glance:
 
 ```bash
 # Default (descriptor.json at project root)
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate
 
 # YAML or both JSON+YAML
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.exportFormat=yaml
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.exportFormat=both
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.exportFormat=yaml
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.exportFormat=both
 
 # Generate an HTML page for non-technical stakeholders
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.generateHtml=true
 
 # Attach a ZIP artifact for repository deployment
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.format=zip -Ddescriptor.attach=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.format=zip -Ddescriptor.attach=true
 
 # Dry-run (print summary, no files)
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.summary=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.summary=true
 ```
 
 ### Options cheat sheet
@@ -223,7 +223,7 @@ Configure the plugin to run automatically during the build:
         <plugin>
             <groupId>io.github.tourem</groupId>
             <artifactId>deploy-manifest-plugin</artifactId>
-            <version>2.3.0</version>
+            <version>2.3.1</version>
             <configuration>
                 <!-- Output file name (default: descriptor.json) -->
                 <outputFile>deployment-info.json</outputFile>
@@ -383,7 +383,7 @@ All plugin options are listed below.
 
 Example (CLI):
 ```
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.includeLicenses=true -Ddescriptor.licenseWarnings=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.includeLicenses=true -Ddescriptor.licenseWarnings=true
 ```
 
 ### Build Properties Parameters
@@ -399,7 +399,7 @@ mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.includeL
 
 Example (CLI):
 ```
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.includeProperties=true -Ddescriptor.includeEnvironmentVariables=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.includeProperties=true -Ddescriptor.includeEnvironmentVariables=true
 ```
 
 ### Plugins Parameters
@@ -415,7 +415,7 @@ mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.includeP
 
 Example (CLI):
 ```
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.includePlugins=true -Ddescriptor.checkPluginUpdates=true -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.includePlugins=true -Ddescriptor.checkPluginUpdates=true -Ddescriptor.generateHtml=true
 ```
 
 
@@ -440,7 +440,7 @@ Disabled by default for backward compatibility. When enabled, dependencies are c
 
 - Quick enable (CLI):
 ```
-mvn io.github.tourem:deploy-manifest-plugin:2.3.0:generate -Ddescriptor.includeDependencyTree=true
+mvn io.github.tourem:deploy-manifest-plugin:2.3.1:generate -Ddescriptor.includeDependencyTree=true
 ```
 - Common options: `dependencyTreeDepth` (-1=unlimited, 0=direct), `dependencyScopes` (default: compile,runtime), `dependencyTreeFormat` (flat|tree|both), `includeOptional` (default: false)
 
@@ -459,7 +459,7 @@ POM configuration:
 <plugin>
   <groupId>io.github.tourem</groupId>
   <artifactId>deploy-manifest-plugin</artifactId>
-  <version>2.3.0</version>
+  <version>2.3.1</version>
   <configuration>
     <includeDependencyTree>true</includeDependencyTree>
     <dependencyTreeDepth>-1</dependencyTreeDepth>
