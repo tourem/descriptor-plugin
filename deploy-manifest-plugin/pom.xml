@@ -5,21 +5,21 @@
 
   <parent>
     <groupId>io.github.tourem</groupId>
-    <artifactId>descriptor-parent</artifactId>
+    <artifactId>deploy-manifest-parent</artifactId>
     <version>1.4.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>descriptor-plugin</artifactId>
+  <artifactId>deploy-manifest-plugin</artifactId>
   <packaging>maven-plugin</packaging>
 
-  <name>Maven Descriptor Plugin</name>
+  <name>Maven Deploy Manifest Plugin</name>
   <description>Maven plugin for generating deployment descriptors with environment configurations</description>
 
   <dependencies>
     <!-- Descriptor Core -->
     <dependency>
       <groupId>io.github.tourem</groupId>
-      <artifactId>descriptor-core</artifactId>
+      <artifactId>deploy-manifest-core</artifactId>
       <version>${project.version}</version>
     </dependency>
 

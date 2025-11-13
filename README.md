@@ -1,6 +1,6 @@
-# Maven Descriptor Plugin
+# Maven Deploy Manifest Plugin
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.tourem/descriptor-plugin.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.tourem/descriptor-plugin)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.tourem/deploy-manifest-plugin.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.tourem/deploy-manifest-plugin)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Java Version](https://img.shields.io/badge/Java-17%2B-blue)](https://openjdk.org/)
 
@@ -17,7 +17,7 @@ Ever deployed to production and wondered:
 
 This plugin generates a comprehensive deployment descriptor with commit SHA, container images, dependencies, and environment configs in a single JSON/YAML/HTML file.
 
-**Published on Maven Central:** `io.github.tourem:descriptor-plugin`
+**Published on Maven Central:** `io.github.tourem:deploy-manifest-plugin`
 
 ---
 
@@ -25,7 +25,7 @@ This plugin generates a comprehensive deployment descriptor with commit SHA, con
 
 ```bash
 # One command, complete traceability
-mvn io.github.tourem:descriptor-plugin:1.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:1.3.0:generate
 ```
 
 Generates `descriptor.json` with project/build/git metadata and module insights.
@@ -55,10 +55,10 @@ See "Example JSON output" below for a concise sample.
 
 ```bash
 # Single module or multi-module (run at root)
-mvn io.github.tourem:descriptor-plugin:1.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:1.3.0:generate
 
 # With HTML report
-mvn io.github.tourem:descriptor-plugin:1.3.0:generate -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:1.3.0:generate -Ddescriptor.generateHtml=true
 ```
 
 ---
@@ -78,7 +78,7 @@ mvn io.github.tourem:descriptor-plugin:1.3.0:generate -Ddescriptor.generateHtml=
 Before deployment:
 ```bash
 mvn clean package
-mvn io.github.tourem:descriptor-plugin:1.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:1.3.0:generate
 cat target/descriptor.json  # verify
 mvn deploy
 ```
@@ -133,7 +133,7 @@ Add the plugin to your project's `pom.xml`:
     <plugins>
         <plugin>
             <groupId>io.github.tourem</groupId>
-            <artifactId>descriptor-plugin</artifactId>
+            <artifactId>deploy-manifest-plugin</artifactId>
             <version>1.3.0</version>
         </plugin>
     </plugins>
@@ -143,7 +143,7 @@ Add the plugin to your project's `pom.xml`:
 Or use it directly without adding to POM:
 
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:1.3.0:generate
 ```
 
 ### Basic Usage
@@ -151,7 +151,7 @@ mvn io.github.tourem:descriptor-plugin:1.3.0:generate
 Generate a deployment descriptor at your project root:
 
 ```bash
-mvn io.github.tourem:descriptor-plugin:1.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:1.3.0:generate
 ```
 
 This creates a `descriptor.json` file containing all deployment information.
@@ -162,20 +162,20 @@ The most common commands at a glance:
 
 ```bash
 # Default (descriptor.json at project root)
-mvn io.github.tourem:descriptor-plugin:1.3.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:1.3.0:generate
 
 # YAML or both JSON+YAML
-mvn io.github.tourem:descriptor-plugin:1.3.0:generate -Ddescriptor.exportFormat=yaml
-mvn io.github.tourem:descriptor-plugin:1.3.0:generate -Ddescriptor.exportFormat=both
+mvn io.github.tourem:deploy-manifest-plugin:1.3.0:generate -Ddescriptor.exportFormat=yaml
+mvn io.github.tourem:deploy-manifest-plugin:1.3.0:generate -Ddescriptor.exportFormat=both
 
 # Generate an HTML page for non-technical stakeholders
-mvn io.github.tourem:descriptor-plugin:1.3.0:generate -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:1.3.0:generate -Ddescriptor.generateHtml=true
 
 # Attach a ZIP artifact for repository deployment
-mvn io.github.tourem:descriptor-plugin:1.3.0:generate -Ddescriptor.format=zip -Ddescriptor.attach=true
+mvn io.github.tourem:deploy-manifest-plugin:1.3.0:generate -Ddescriptor.format=zip -Ddescriptor.attach=true
 
 # Dry-run (print summary, no files)
-mvn io.github.tourem:descriptor-plugin:1.3.0:generate -Ddescriptor.summary=true
+mvn io.github.tourem:deploy-manifest-plugin:1.3.0:generate -Ddescriptor.summary=true
 ```
 ### POM Configuration
 
@@ -186,7 +186,7 @@ Configure the plugin to run automatically during the build:
     <plugins>
         <plugin>
             <groupId>io.github.tourem</groupId>
-            <artifactId>descriptor-plugin</artifactId>
+            <artifactId>deploy-manifest-plugin</artifactId>
             <version>1.3.0</version>
             <configuration>
                 <!-- Output file name (default: descriptor.json) -->
@@ -347,7 +347,7 @@ Disabled by default for backward compatibility. When enabled, dependencies are c
 
 - Quick enable (CLI):
 ```
-mvn io.github.tourem:descriptor-plugin:1.3.0:generate -Ddescriptor.includeDependencyTree=true
+mvn io.github.tourem:deploy-manifest-plugin:1.3.0:generate -Ddescriptor.includeDependencyTree=true
 ```
 - Common options: `dependencyTreeDepth` (-1=unlimited, 0=direct), `dependencyScopes` (default: compile,runtime), `dependencyTreeFormat` (flat|tree|both), `includeOptional` (default: false)
 
@@ -365,7 +365,7 @@ POM configuration:
 ```xml
 <plugin>
   <groupId>io.github.tourem</groupId>
-  <artifactId>descriptor-plugin</artifactId>
+  <artifactId>deploy-manifest-plugin</artifactId>
   <version>1.3.0</version>
   <configuration>
     <includeDependencyTree>true</includeDependencyTree>

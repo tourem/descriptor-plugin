@@ -48,8 +48,8 @@ jobs:
         with:
           name: maven-artifacts
           path: |
-            descriptor-core/target/*.jar
-            descriptor-plugin/target/*.jar
+            deploy-manifest-core/target/*.jar
+            deploy-manifest-plugin/target/*.jar
           retention-days: 7
       
       - name: Summary
@@ -58,6 +58,6 @@ jobs:
           echo "## ✅ Build Successful!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Artifacts Built" >> $GITHUB_STEP_SUMMARY
-          echo "- descriptor-core" >> $GITHUB_STEP_SUMMARY
-          echo "- descriptor-plugin" >> $GITHUB_STEP_SUMMARY
+          echo "- deploy-manifest-core" >> $GITHUB_STEP_SUMMARY
+          echo "- deploy-manifest-plugin" >> $GITHUB_STEP_SUMMARY
 

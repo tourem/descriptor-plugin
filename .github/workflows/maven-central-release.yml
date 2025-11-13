@@ -98,7 +98,7 @@ jobs:
       
       - name: Commit release version
         run: |
-          git add pom.xml descriptor-core/pom.xml descriptor-plugin/pom.xml
+          git add pom.xml deploy-manifest-core/pom.xml deploy-manifest-plugin/pom.xml
           git commit -m "chore: Release version ${{ steps.validate_version.outputs.release_version }}"
           git tag -a "v${{ steps.validate_version.outputs.release_version }}" \
             -m "Release version ${{ steps.validate_version.outputs.release_version }}"
@@ -114,7 +114,7 @@ jobs:
       
       - name: Commit next snapshot version
         run: |
-          git add pom.xml descriptor-core/pom.xml descriptor-plugin/pom.xml
+          git add pom.xml deploy-manifest-core/pom.xml deploy-manifest-plugin/pom.xml
           git commit -m "chore: Prepare next development iteration ${{ steps.validate_version.outputs.next_snapshot }}"
       
       - name: Push changes and tags
@@ -126,7 +126,7 @@ jobs:
         run: |
           mkdir -p .github
           cat > .github/RELEASE_BODY.md <<'EOF'
-          ## Maven Descriptor Plugin v${{ steps.validate_version.outputs.release_version }}
+          ## Maven Deploy Manifest Plugin v${{ steps.validate_version.outputs.release_version }}
 
           ### 📦 Maven Coordinates
 
@@ -134,14 +134,14 @@ jobs:
           ```xml
           <plugin>
             <groupId>io.github.tourem</groupId>
-            <artifactId>descriptor-plugin</artifactId>
+            <artifactId>deploy-manifest-plugin</artifactId>
             <version>${{ steps.validate_version.outputs.release_version }}</version>
           </plugin>
           ```
 
           Or use directly:
           ```bash
-          mvn io.github.tourem:descriptor-plugin:${{ steps.validate_version.outputs.release_version }}:generate
+          mvn io.github.tourem:deploy-manifest-plugin:${{ steps.validate_version.outputs.release_version }}:generate
           ```
 
           ### 🚀 Features
@@ -151,7 +151,7 @@ jobs:
 
           ### 📚 Documentation
           - [GitHub Repository](https://github.com/${{ github.repository }})
-          - [Maven Central](https://central.sonatype.com/artifact/io.github.tourem/descriptor-plugin/${{ steps.validate_version.outputs.release_version }})
+          - [Maven Central](https://central.sonatype.com/artifact/io.github.tourem/deploy-manifest-plugin/${{ steps.validate_version.outputs.release_version }})
 
           ### 📝 Changes
           See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
@@ -178,13 +178,13 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
           echo "- [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.validate_version.outputs.release_version }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [Maven Central](https://central.sonatype.com/artifact/io.github.tourem/descriptor-plugin/${{ steps.validate_version.outputs.release_version }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Maven Central](https://central.sonatype.com/artifact/io.github.tourem/deploy-manifest-plugin/${{ steps.validate_version.outputs.release_version }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📝 Maven Coordinates" >> $GITHUB_STEP_SUMMARY
           echo '```xml' >> $GITHUB_STEP_SUMMARY
           echo '<plugin>' >> $GITHUB_STEP_SUMMARY
           echo '  <groupId>io.github.tourem</groupId>' >> $GITHUB_STEP_SUMMARY
-          echo '  <artifactId>descriptor-plugin</artifactId>' >> $GITHUB_STEP_SUMMARY
+          echo '  <artifactId>deploy-manifest-plugin</artifactId>' >> $GITHUB_STEP_SUMMARY
           echo "  <version>${{ steps.validate_version.outputs.release_version }}</version>" >> $GITHUB_STEP_SUMMARY
           echo '</plugin>' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

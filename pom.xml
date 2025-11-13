@@ -4,13 +4,13 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>io.github.tourem</groupId>
-  <artifactId>descriptor-parent</artifactId>
+  <artifactId>deploy-manifest-parent</artifactId>
   <version>1.4.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
-  <name>Maven Descriptor Plugin - Parent</name>
+  <name>Maven Deploy Manifest Plugin - Parent</name>
   <description>Intelligent Maven project analyzer that generates comprehensive deployment descriptors with environment configurations, executable detection, and assembly artifacts for streamlined CI/CD automation</description>
-  <url>https://github.com/tourem/descriptor-plugin</url>
+  <url>https://github.com/tourem/deploy-manifest-plugin</url>
   <inceptionYear>2024</inceptionYear>
 
   <licenses>
@@ -36,20 +36,20 @@
   </developers>
 
   <scm>
-    <connection>scm:git:git://github.com/tourem/descriptor-plugin.git</connection>
-    <developerConnection>scm:git:ssh://git@github.com/tourem/descriptor-plugin.git</developerConnection>
-    <url>https://github.com/tourem/descriptor-plugin</url>
+    <connection>scm:git:git://github.com/tourem/deploy-manifest-plugin.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/tourem/deploy-manifest-plugin.git</developerConnection>
+    <url>https://github.com/tourem/deploy-manifest-plugin</url>
     <tag>HEAD</tag>
   </scm>
 
   <issueManagement>
     <system>GitHub Issues</system>
-    <url>https://github.com/tourem/descriptor-plugin/issues</url>
+    <url>https://github.com/tourem/deploy-manifest-plugin/issues</url>
   </issueManagement>
 
   <modules>
-    <module>descriptor-core</module>
-    <module>descriptor-plugin</module>
+    <module>deploy-manifest-core</module>
+    <module>deploy-manifest-plugin</module>
   </modules>
 
   <properties>

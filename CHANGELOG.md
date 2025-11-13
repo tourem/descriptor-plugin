@@ -180,8 +180,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release of the Descriptor Plugin
 - Multi-module Maven project structure
-- Core library (`descriptor-core`) for Maven project analysis
-- Maven plugin (`descriptor-plugin`) for generating deployment descriptors
+- Core library (`deploy-manifest-core`) for Maven project analysis
+- Maven plugin (`deploy-manifest-plugin`) for generating deployment manifests
 - Automatic detection of deployable modules (JAR, WAR, EAR)
 - Spring Boot executable detection
 - Environment-specific configuration extraction (dev, hml, prod)
@@ -203,14 +203,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Module Structure
 ```
-descriptor-parent/
-├── descriptor-core/         # Core analysis library
-└── descriptor-plugin/       # Maven plugin
+deploy-manifest-parent/
+├── deploy-manifest-core/         # Core analysis library
+└── deploy-manifest-plugin/       # Maven plugin
 ```
 
 #### Plugin Configuration
 - **groupId**: `io.github.tourem`
-- **artifactId**: `descriptor-plugin`
+- **artifactId**: `deploy-manifest-plugin`
 - **version**: `1.0.0`
 
 #### System Properties
@@ -222,10 +222,10 @@ descriptor-parent/
 #### Usage
 ```bash
 # Basic usage
-mvn io.github.tourem:descriptor-plugin:1.0.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:1.0.0:generate
 
 # With custom output
-mvn io.github.tourem:descriptor-plugin:1.0.0:generate \
+mvn io.github.tourem:deploy-manifest-plugin:1.0.0:generate \
   -Ddescriptor.outputFile=deployment.json \
   -Ddescriptor.outputDirectory=target
 ```

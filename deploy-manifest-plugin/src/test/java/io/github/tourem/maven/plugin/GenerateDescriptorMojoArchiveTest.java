@@ -28,7 +28,7 @@ public class GenerateDescriptorMojoArchiveTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        tempDir = Files.createTempDirectory("descriptor-plugin-test-");
+        tempDir = Files.createTempDirectory("deploy-manifest-plugin-test-");
     }
 
     @AfterEach
@@ -189,7 +189,7 @@ public class GenerateDescriptorMojoArchiveTest {
         MavenProject project = new MavenProject();
         project.setArtifactId("test-artifact");
         project.setVersion("1.0.0");
-        // Point to the descriptor-plugin module as the project under analysis (current module)
+        // Point to the deploy-manifest-plugin module as the project under analysis (current module)
         File modulePom = Paths.get("pom.xml").toFile();
         project.setFile(modulePom);
         // Ensure basedir is set for the analyzer
