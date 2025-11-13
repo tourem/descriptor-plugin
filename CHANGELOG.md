@@ -11,6 +11,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet.
 
 
+## [2.1.0] - 2025-11-13
+
+### Added
+- HTML Dependencies tab: one section per deployable module with Flat/Tree views and collapsible nodes
+- Search highlighting with <mark> and Previous/Next navigation with counter
+- Quick filters by families: Spring, Jackson, Hibernate, Quarkus, Micronaut, Apache Commons, Guava, Netty, SLF4J, Logback, JUnit
+- Colored scope badges in the tree (compile, runtime, test, provided, system, import)
+- Expand All / Collapse All controls for the tree view
+
+### Changed
+- Hierarchical filtering: parents remain visible when a descendant matches; matching branches auto-expand during search
+- Default Tree behavior: levels > 1 collapsed on load for readability
+- Dedicated "Dependencies" top-level tab; dependency sections removed from "Modules" to avoid duplication
+- Documentation: README updated to reference version 2.1.0 and reflect the new UI capabilities
+
+### Fixed
+- Tab switching bug that could leave “Dependencies”, “Environments” or “Assemblies” sections empty
+- Transitive dependency search in the HTML Tree view now works correctly
+- Minor HTML escaping and event-handler robustness improvements
+
+
 
 ## [2.0.0] - 2025-11-13
 
