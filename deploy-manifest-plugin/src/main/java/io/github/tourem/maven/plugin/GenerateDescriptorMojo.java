@@ -15,6 +15,13 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectHelper;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.project.ProjectBuilder;
+import org.apache.maven.project.ProjectBuildingRequest;
+import org.apache.maven.project.DefaultProjectBuildingRequest;
+import org.apache.maven.shared.dependency.graph.DependencyGraphBuilder;
+import org.apache.maven.shared.dependency.graph.DependencyGraphBuilderException;
+import org.apache.maven.artifact.Artifact;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +30,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.*;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -58,6 +66,18 @@ public class GenerateDescriptorMojo extends AbstractMojo {
      */
     @Parameter(defaultValue = "${project}", readonly = true, required = true)
     private MavenProject project;
+
+    /** Maven runtime session */
+    @Parameter(defaultValue = "${session}", readonly = true)
+    private MavenSession session;
+
+    /** Project builder (fallback when module not in session) */
+    @Component
+    private ProjectBuilder projectBuilder;
+
+    /** Dependency graph builder for resolving transitive dependencies */
+    @Component
+    private DependencyGraphBuilder dependencyGraphBuilder;
 
     /**
      * Maven project helper for attaching artifacts.
@@ -317,6 +337,17 @@ public class GenerateDescriptorMojo extends AbstractMojo {
 
             // Configure ObjectMapper
             ObjectMapper jsonMapper = new ObjectMapper();
+            // Enrich dependencies with resolved transitive tree for HTML if enabled
+            var dtOptions = dtOptionsBuilder.build();
+            if (dtOptions.isInclude() && !excludeTransitive) {
+                try {
+                    enrichDependencyTrees(descriptor, dtOptions);
+                } catch (Exception e) {
+                    getLog().warn("Failed to resolve transitive dependencies for tree view: " + e.getMessage());
+                    getLog().debug("Tree resolution error details", e);
+                }
+            }
+
             jsonMapper.findAndRegisterModules();
             jsonMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
             if (prettyPrint) {
@@ -1442,22 +1473,7 @@ d af f CSV</button>\\n");
                         html.append("\">\n");
                         html.append("          <ul style=\"padding-left:18px;\">\n");
                         for (var n : deps.getTree()) {
-                            String scope = n.getScope()==null?"":n.getScope();
-                            String ga = (n.getGroupId()==null?"":n.getGroupId()) + ":" + (n.getArtifactId()==null?"":n.getArtifactId());
-                            String version = n.getVersion()==null?"":n.getVersion();
-                            String type = n.getType()==null?"":n.getType();
-                            String optional = n.isOptional()?"true":"false";
-                            html.append("            <li class=\"dep-node\" data-module=\"").append(moduleId)
-                                .append("\" data-ga=\"").append(escapeHtml(ga))
-                                .append("\" data-scope=\"").append(escapeHtml(scope))
-                                .append("\" data-version=\"").append(escapeHtml(version))
-                                .append("\" data-type=\"").append(escapeHtml(type))
-                                .append("\" data-optional=\"").append(optional)
-                                .append("\" data-depth=\"1\">");
-                            html.append(escapeHtml(ga)).append(":");
-                            html.append(" <code>").append(escapeHtml(version)).append("</code>");
-                            html.append(" [").append(escapeHtml(scope)).append("]");
-                            html.append("</li>\n");
+                            appendTreeNodeHtml(html, n, moduleId, 1);
                         }
                         html.append("          </ul>\n");
                         html.append("        </div>\n");
@@ -1643,6 +1659,7 @@ d af f CSV</button>\\n");
     html.append("        if(entries.length){ dupesEl.innerHTML='⚠️ Duplicates detected: '+entries.map(([ga,set])=>ga+' → '+Array.from(set).join(', ')).join(' | '); } else { dupesEl.innerHTML=''; }\n");
     html.append("      }\n");
     html.append("      const nodes=document.querySelectorAll('#dep-tree-'+modId+' .dep-node');\n");
+
     html.append("      nodes.forEach(li=>{ const ga=(li.dataset.ga||'').toLowerCase(); const ver=(li.dataset.version||'').toLowerCase(); const scope=(li.dataset.scope||''); const depth=parseInt(li.dataset.depth||'1',10); let show=true; if(selected.size>0 && !selected.has(scope)) show=false; if(depthLimit>=0 && depth>depthLimit) show=false; if(term && !(ga.includes(term)||ver.includes(term))) show=false; li.style.display=show?'':'none'; });\n");
     html.append("    }\n");
     html.append("    function initDependenciesSection(modId){\n");
@@ -1679,6 +1696,211 @@ d af f CSV</button>\\n");
         Files.writeString(htmlPath, html.toString(), StandardCharsets.UTF_8);
         getLog().info("✓ HTML documentation generated: " + htmlPath.toAbsolutePath());
     }
+
+    /**
+     * Build transitive dependency trees for modules using Maven's DependencyGraphBuilder
+     * and populate the descriptor's tree view (keeping existing flat view if present).
+     */
+    private void enrichDependencyTrees(ProjectDescriptor descriptor,
+                                       io.github.tourem.maven.descriptor.model.DependencyTreeOptions options)
+            throws DependencyGraphBuilderException {
+        if (descriptor == null || descriptor.deployableModules() == null || descriptor.deployableModules().isEmpty()) {
+            return;
+        }
+        if (session == null || dependencyGraphBuilder == null) {
+            getLog().debug("Dependency graph services not available; skipping tree enrichment");
+            return;
+        }
+
+        // Normalize configuration
+        final Set<String> allowedScopes = (options.getScopes() == null || options.getScopes().isEmpty())
+                ? new HashSet<>(Arrays.asList("compile", "runtime"))
+                : new HashSet<>(options.getScopes().stream().map(String::toLowerCase).toList());
+        final boolean includeOptionalDeps = options.isIncludeOptional();
+        final int depthLimit = options.getDepth(); // -1 unlimited; 0 direct only; N max depth
+
+        for (io.github.tourem.maven.descriptor.model.DeployableModule module : descriptor.deployableModules()) {
+            try {
+                // Find the MavenProject for this module in the session or build from its pom.xml
+                MavenProject moduleProject = findModuleProject(module);
+                if (moduleProject == null) {
+                    getLog().debug("Module project not found for " + module.getArtifactId() + "; skipping tree");
+                    continue;
+                }
+
+                ProjectBuildingRequest req = new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
+                req.setProject(moduleProject);
+                org.apache.maven.shared.dependency.graph.DependencyNode root =
+                        dependencyGraphBuilder.buildDependencyGraph(req, null);
+                if (root == null || root.getChildren() == null) {
+                    continue;
+                }
+
+                // Convert to our model (top-level children of root are direct deps)
+                List<io.github.tourem.maven.descriptor.model.DependencyNode> topNodes = new ArrayList<>();
+                for (org.apache.maven.shared.dependency.graph.DependencyNode child : root.getChildren()) {
+                    io.github.tourem.maven.descriptor.model.DependencyNode converted =
+                            convertNode(child, allowedScopes, includeOptionalDeps, depthLimit, 1, new HashSet<>());
+                    if (converted != null) {
+                        topNodes.add(converted);
+                    }
+                }
+
+                // Compute summary counters from built tree
+                int direct = topNodes.size();
+                SummaryCounters counters = new SummaryCounters();
+                for (io.github.tourem.maven.descriptor.model.DependencyNode n : topNodes) {
+                    accumulateCounters(n, counters);
+                }
+                int total = counters.total;
+                int transitive = Math.max(0, total - direct);
+
+                io.github.tourem.maven.descriptor.model.DependencySummary summary =
+                        io.github.tourem.maven.descriptor.model.DependencySummary.builder()
+                                .total(total)
+                                .direct(direct)
+                                .transitive(transitive)
+                                .optional(counters.optional)
+                                .scopes(counters.scopes)
+                                .build();
+
+                // Preserve existing flat entries if any
+                List<io.github.tourem.maven.descriptor.model.DependencyFlatEntry> flat = null;
+                if (module.getDependencies() != null) {
+                    flat = module.getDependencies().getFlat();
+                }
+
+                io.github.tourem.maven.descriptor.model.DependencyTreeInfo info =
+                        io.github.tourem.maven.descriptor.model.DependencyTreeInfo.builder()
+                                .summary(summary)
+                                .flat(flat)
+                                .tree(topNodes)
+                                .build();
+
+                module.setDependencies(info);
+
+            } catch (Exception ex) {
+                getLog().debug("Failed to enrich dependency tree for module " + module.getArtifactId() + ": " + ex.getMessage(), ex);
+            }
+        }
+    }
+
+    private MavenProject findModuleProject(io.github.tourem.maven.descriptor.model.DeployableModule module) throws Exception {
+        if (session != null && session.getAllProjects() != null) {
+            for (MavenProject p : session.getAllProjects()) {
+                if (Objects.equals(p.getGroupId(), module.getGroupId())
+                        && Objects.equals(p.getArtifactId(), module.getArtifactId())
+                        && Objects.equals(p.getVersion(), module.getVersion())) {
+                    return p;
+                }
+            }
+        }
+        // Fallback: build from pom.xml
+        if (projectBuilder != null && project != null && module.getModulePath() != null) {
+            File base = project.getBasedir();
+            File moduleDir = ".".equals(module.getModulePath()) ? base : new File(base, module.getModulePath());
+            File pom = new File(moduleDir, "pom.xml");
+            if (pom.isFile()) {
+                ProjectBuildingRequest req = new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
+                return projectBuilder.build(pom, req).getProject();
+            }
+        }
+        return null;
+    }
+
+    private io.github.tourem.maven.descriptor.model.DependencyNode convertNode(
+            org.apache.maven.shared.dependency.graph.DependencyNode node,
+            Set<String> allowedScopes,
+            boolean includeOptional,
+            int depthLimit,
+            int currentDepth,
+            Set<String> visited) {
+        Artifact a = node.getArtifact();
+        if (a == null) return null;
+        String scope = (a.getScope() == null || a.getScope().isEmpty()) ? "compile" : a.getScope().toLowerCase();
+        if (!allowedScopes.contains(scope)) return null;
+        boolean optional = a.isOptional();
+        if (optional && !includeOptional) return null;
+
+        String key = a.getGroupId() + ":" + a.getArtifactId() + ":" + a.getVersion();
+        if (!visited.add(key)) {
+            return null; // avoid cycles/duplicates
+        }
+
+        boolean canGoDeeper;
+        if (depthLimit < 0) {
+            canGoDeeper = true;
+        } else {
+            canGoDeeper = currentDepth < depthLimit; // depth=1 means direct
+        }
+
+        List<io.github.tourem.maven.descriptor.model.DependencyNode> children = null;
+        if (canGoDeeper && node.getChildren() != null && !node.getChildren().isEmpty()) {
+            children = new ArrayList<>();
+            for (org.apache.maven.shared.dependency.graph.DependencyNode c : node.getChildren()) {
+                io.github.tourem.maven.descriptor.model.DependencyNode cc =
+                        convertNode(c, allowedScopes, includeOptional, depthLimit, currentDepth + 1, new HashSet<>(visited));
+                if (cc != null) children.add(cc);
+            }
+            if (children.isEmpty()) children = null;
+        }
+
+        return io.github.tourem.maven.descriptor.model.DependencyNode.builder()
+                .groupId(a.getGroupId())
+                .artifactId(a.getArtifactId())
+                .version(a.getVersion())
+                .scope(scope)
+                .type(a.getType())
+                .optional(optional)
+                .children(children)
+                .build();
+    }
+
+    private static class SummaryCounters {
+        int total = 0;
+        int optional = 0;
+        Map<String, Integer> scopes = new HashMap<>();
+    }
+
+    private void accumulateCounters(io.github.tourem.maven.descriptor.model.DependencyNode n, SummaryCounters c) {
+        if (n == null) return;
+        c.total++;
+        if (n.isOptional()) c.optional++;
+        String s = n.getScope() == null ? "" : n.getScope();
+        c.scopes.put(s, c.scopes.getOrDefault(s, 0) + 1);
+        if (n.getChildren() != null) {
+            for (io.github.tourem.maven.descriptor.model.DependencyNode ch : n.getChildren()) {
+                accumulateCounters(ch, c);
+            }
+        }
+    }
+
+    private void appendTreeNodeHtml(StringBuilder html, io.github.tourem.maven.descriptor.model.DependencyNode n, String moduleId, int depth) {
+        String scope = n.getScope() == null ? "" : n.getScope();
+        String ga = (n.getGroupId() == null ? "" : n.getGroupId()) + ":" + (n.getArtifactId() == null ? "" : n.getArtifactId());
+        String version = n.getVersion() == null ? "" : n.getVersion();
+        String type = n.getType() == null ? "" : n.getType();
+        String optional = n.isOptional() ? "true" : "false";
+        html.append("            <li class=\"dep-node\" data-module=\"").append(moduleId)
+            .append("\" data-ga=\"").append(escapeHtml(ga))
+            .append("\" data-scope=\"").append(escapeHtml(scope))
+            .append("\" data-version=\"").append(escapeHtml(version))
+            .append("\" data-type=\"").append(escapeHtml(type))
+            .append("\" data-optional=\"").append(optional)
+            .append("\" data-depth=\"").append(String.valueOf(depth)).append("\">");
+        html.append(escapeHtml(ga)).append(": ");
+        html.append(" <code>").append(escapeHtml(version)).append("</code>");
+        html.append(" [").append(escapeHtml(scope)).append("]");
+        if (n.getChildren() != null && !n.getChildren().isEmpty()) {
+            html.append("\n              <ul style=\"padding-left:18px;\">\n");
+            for (io.github.tourem.maven.descriptor.model.DependencyNode ch : n.getChildren()) {
+                appendTreeNodeHtml(html, ch, moduleId, depth + 1);
+            }
+            html.append("              </ul>\n            ");
+        }
+        html.append("</li>\n");
+    }
+
 
     /**
      * Escape HTML special characters to prevent XSS.
