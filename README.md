@@ -288,10 +288,8 @@ Below is a concise example of the descriptor. Fields may be omitted when not app
 
 ## Configuration Parameters
 
-For brevity, the full parameter tables are collapsed.
+All plugin options are listed below.
 
-<details>
-<summary>Show all parameters</summary>
 
 ### Core Parameters
 
@@ -338,7 +336,7 @@ For brevity, the full parameter tables are collapsed.
 | `includeOptional` | `descriptor.includeOptional` | `false` | Include optional dependencies |
 
 
-</details>
+
 
 
 #### Build Metadata
