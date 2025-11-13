@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+### Added
+- Dependency Tree for executable modules (optional, disabled by default)
+  - JSON/YAML: `dependencies` section with `summary`, and either `flat` and/or `tree` according to configuration
+  - HTML: interactive Dependencies section per module (search, scope/depth filters, Flat/Tree views, CSV export, duplicate detection)
+  - Limitation: first iteration collects only direct dependencies declared in the POM; full transitive resolution planned next
+
+
 #### 🚀 Advanced Features (Feature Branch: feature/advanced-features)
 
 - **Git and CI/CD Metadata Collection**: Complete traceability and build reproducibility

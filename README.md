@@ -27,6 +27,8 @@ A Maven plugin that automatically generates comprehensive deployment descriptors
 ✅ **Post-Generation Hooks**: Execute custom scripts after descriptor generation
 - ✅ Container Images: Detect maintained Maven container plugins (Jib, Spring Boot build-image, Fabric8, Quarkus, Micronaut, JKube) and include image coordinates in the descriptor
 
+- ✅ Dependency Tree (optional): Collect per-executable module dependencies with summary; interactive HTML (search, filters, table/tree views, CSV export, duplicates detection)
+
 
 ### 🎁 Bonus Features
 ✅ **Multiple Export Formats**: JSON, YAML, or both
@@ -198,6 +200,54 @@ Screenshots:
 - ![Descriptor HTML – Overview](images/html1.jpg)
 - ![Descriptor HTML – Modules](images/html2.jpg)
 
+### Dependency Tree Feature (optional)
+
+Disabled by default to preserve backward compatibility. When enabled, the plugin collects dependencies for each deployable/executable module and exposes them in the JSON/YAML descriptor, plus an interactive section in the HTML report.
+
+- Enable feature (CLI):
+```
+mvn io.github.tourem:descriptor-plugin:1.3.0:generate -Ddescriptor.includeDependencyTree=true
+```
+- Control depth (-1=unlimited, 0=direct only):
+```
+mvn ... -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeDepth=1
+```
+- Filter by scopes (CSV, default: compile,runtime):
+```
+mvn ... -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyScopes=compile,runtime
+```
+- Choose format: flat | tree | both (default: flat)
+```
+mvn ... -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeFormat=both
+```
+- Exclude transitives / include optional flags:
+```
+mvn ... -Ddescriptor.includeDependencyTree=true -Ddescriptor.excludeTransitive=false -Ddescriptor.includeOptional=false
+```
+
+POM configuration example:
+
+```
+<plugin>
+  <groupId>io.github.tourem</groupId>
+  <artifactId>descriptor-plugin</artifactId>
+  <version>1.3.0</version>
+  <configuration>
+    <includeDependencyTree>true</includeDependencyTree>
+    <dependencyTreeDepth>-1</dependencyTreeDepth>
+    <dependencyScopes>compile,runtime</dependencyScopes>
+    <dependencyTreeFormat>flat</dependencyTreeFormat>
+    <excludeTransitive>false</excludeTransitive>
+    <includeOptional>false</includeOptional>
+  </configuration>
+</plugin>
+```
+
+Notes:
+- First iteration collects direct dependencies declared in the POM; transitive resolution is planned in a subsequent iteration.
+- The HTML report (when `-Ddescriptor.generateHtml=true`) adds an interactive Dependencies section inside each module card: search, scope/depth filters, view selector (Flat/Tree), CSV export, and duplicate detection.
+
+
 
 
 
@@ -225,6 +275,8 @@ The plugin automatically analyzes your Maven project and detects:
 - **Maven Assembly**: Assembly descriptors, formats, repository paths
 - **Build Plugins**: spring-boot-maven-plugin, maven-assembly-plugin
 - **Container Images**: image coordinates (registry/group/name), tag(s), tool used (jib, spring-boot, fabric8, quarkus, micronaut, jkube), base or builder images when available
+
+- **Dependency Tree (optional)**: Per executable module; summary (total/direct/transitive/scopes/optional) and details in flat and/or tree formats
 
 Example snippet in descriptor.json for a module:
 

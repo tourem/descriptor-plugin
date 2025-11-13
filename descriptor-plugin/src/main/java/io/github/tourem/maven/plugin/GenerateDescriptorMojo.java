@@ -229,6 +229,34 @@ public class GenerateDescriptorMojo extends AbstractMojo {
     @Parameter(property = "descriptor.postGenerationHook")
     private String postGenerationHook;
 
+    // ================================
+    // Dependency Tree Feature Options
+    // ================================
+
+    /** Enable dependency tree collection (disabled by default). */
+    @Parameter(property = "descriptor.includeDependencyTree", defaultValue = "false")
+    private boolean includeDependencyTree;
+
+    /** Depth: -1=unlimited, 0=direct only. */
+    @Parameter(property = "descriptor.dependencyTreeDepth", defaultValue = "-1")
+    private int dependencyTreeDepth;
+
+    /** Scopes to include, comma-separated. Default: compile,runtime */
+    @Parameter(property = "descriptor.dependencyScopes", defaultValue = "compile,runtime")
+    private String dependencyScopes;
+
+    /** Output format: flat, tree, both. */
+    @Parameter(property = "descriptor.dependencyTreeFormat", defaultValue = "flat")
+    private String dependencyTreeFormat;
+
+    /** Exclude transitive dependencies entirely. */
+    @Parameter(property = "descriptor.excludeTransitive", defaultValue = "false")
+    private boolean excludeTransitive;
+
+    /** Include optional dependencies (default: false). */
+    @Parameter(property = "descriptor.includeOptional", defaultValue = "false")
+    private boolean includeOptional;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         if (skip) {
@@ -246,7 +274,27 @@ public class GenerateDescriptorMojo extends AbstractMojo {
             getLog().debug("Project directory: " + projectDir.getAbsolutePath());
 
             // Analyze the project
-            MavenProjectAnalyzer analyzer = new MavenProjectAnalyzer();
+            var dtOptionsBuilder = io.github.tourem.maven.descriptor.model.DependencyTreeOptions.builder()
+                .include(includeDependencyTree)
+                .depth(dependencyTreeDepth)
+                .format(io.github.tourem.maven.descriptor.model.DependencyTreeFormat.fromString(dependencyTreeFormat))
+                .excludeTransitive(excludeTransitive)
+                .includeOptional(includeOptional);
+
+            // Parse scopes
+            java.util.Set<String> scopeSet = new java.util.HashSet<>();
+            if (dependencyScopes != null && !dependencyScopes.trim().isEmpty()) {
+                for (String s : dependencyScopes.split(",")) {
+                    if (s != null && !s.trim().isEmpty()) scopeSet.add(s.trim().toLowerCase());
+                }
+            }
+            if (scopeSet.isEmpty()) {
+                scopeSet.add("compile");
+                scopeSet.add("runtime");
+            }
+            dtOptionsBuilder.scopes(scopeSet);
+
+            MavenProjectAnalyzer analyzer = new MavenProjectAnalyzer(dtOptionsBuilder.build());
             ProjectDescriptor descriptor = analyzer.analyzeProject(projectDir.toPath());
 
             // Validate descriptor if requested
@@ -1261,6 +1309,165 @@ public class GenerateDescriptorMojo extends AbstractMojo {
                     html.append("        </div>\n");
                 }
 
+
+                // Dependencies section (interactive) if available
+                if (module.getDependencies() != null) {
+                    var deps = module.getDependencies();
+                    var summary = deps.getSummary();
+                    String moduleId = module.getArtifactId().replaceAll("[^A-Za-z0-9_-]", "_");
+
+                    html.append("        <div class=\"section-header\" style=\"font-size: 1.1em; margin-top: 20px;\">🧩 Dependencies</div>\n");
+
+                    // Summary cards
+                    html.append("        <div class=\"info-grid\">\n");
+                    if (summary != null) {
+                        html.append("          <div class=\"info-item\">\n");
+                        html.append("            <div class=\"info-label\">Total</div>\n");
+                        html.append("            <div class=\"info-value\"><strong>").append(summary.getTotal()).append("</strong></div>\n");
+                        html.append("          </div>\n");
+                        html.append("          <div class=\"info-item\">\n");
+                        html.append("            <div class=\"info-label\">Direct</div>\n");
+                        html.append("            <div class=\"info-value\"><strong>").append(summary.getDirect()).append("</strong></div>\n");
+                        html.append("          </div>\n");
+                        html.append("          <div class=\"info-item\">\n");
+                        html.append("            <div class=\"info-label\">Transitive</div>\n");
+                        html.append("            <div class=\"info-value\"><strong>").append(summary.getTransitive()).append("</strong></div>\n");
+                        html.append("          </div>\n");
+                        html.append("          <div class=\"info-item\">\n");
+                        html.append("            <div class=\"info-label\">Optional</div>\n");
+                        html.append("            <div class=\"info-value\"><strong>").append(summary.getOptional()).append("</strong></div>\n");
+                        html.append("          </div>\n");
+                    }
+                    html.append("        </div>\n");
+
+                    // Controls
+                    boolean hasFlat = deps.getFlat() != null && !deps.getFlat().isEmpty();
+                    boolean hasTree = deps.getTree() != null && !deps.getTree().isEmpty();
+                    String defaultView = hasFlat ? "flat" : (hasTree ? "tree" : "flat");
+
+                    html.append("        <div id=\"dep-section-").append(moduleId).append("\" style=\"margin: 10px 0 5px 0;\">\n");
+                    // Search
+                    html.append("          <input id=\"dep-search-").append(moduleId).append("\" type=\"text\" placeholder=\"Search group:artifact or version...\" style=\"padding:8px; width:260px; margin-right:8px;\">\n");
+                    // Depth
+                    html.append("          <label style=\"margin-right:6px;\">Depth</label><input id=\"dep-depth-").append(moduleId).append("\" type=\"number\" min=\"-1\" value=\"-1\" style=\"width:68px; padding:6px; margin-right:12px;\">\n");
+                    // View select
+                    html.append("          <label style=\"margin-right:6px;\">View</label><select id=\"dep-view-").append(moduleId).append("\" style=\"padding:8px; margin-right:12px;\">");
+                    if (hasFlat) html.append("<option value=\"flat\" ").append("flat".equals(defaultView)?"selected":"").append(">Flat</option>");
+                    if (hasTree) html.append("<option value=\"tree\" ").append("tree".equals(defaultView)?"selected":"").append(">Tree</option>");
+                    html.append("</select>\n");
+                    // CSV export
+                    /*
+
+                    html.append("          <button type=\"button\" onclick=\"exportCsv('"").append(moduleId).append("')\" style=\"padding:8px 12px; border-radius:6px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer;\">⬇️ CSV</button>\n");
+                    */
+                    /*
+
+                    html.append("          <button type=\"button\" onclick=\"exportCsv('")
+                        .append(moduleId)
+                        .append("')\" style=\"padding:8px 12px; border-radius:6px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer;\">
+d af f CSV</button>\\n");
+                    */
+                    /*
+
+                    html.append("          <button type=\"button\" onclick=\"exportCsv('")
+                        .append(moduleId)
+                        .append("')\" style=\"padding:8px 12px; border-radius:6px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer;\">
+ f  CSV</button>\\n");
+                    */
+                    // CSV export (fixed)
+                    html.append("          <button type=\"button\" onclick=\"exportCsv('")
+                        .append(moduleId)
+                        .append("')\" style=\"padding:8px 12px; border-radius:6px; border:1px solid #e0e0e0; background:#f8f9fa; cursor:pointer;\">CSV</button>\n");
+
+
+
+
+                    // Scope filters
+                    if (summary != null && summary.getScopes() != null && !summary.getScopes().isEmpty()) {
+                        html.append("          <div style=\"margin-top:10px; display:flex; gap:12px; flex-wrap:wrap;\">\n");
+                        for (var e : summary.getScopes().entrySet()) {
+                            String scope = e.getKey();
+                            int count = e.getValue() == null ? 0 : e.getValue();
+                            String cbId = "dep-scope-" + moduleId + "-" + scope;
+                            html.append("            <label for=\"").append(cbId).append("\" style=\"user-select:none;\">");
+                            html.append("<input type=\"checkbox\" id=\"").append(cbId).append("\" data-scope-check=\"").append(moduleId).append("\" value=\"").append(scope).append("\" checked style=\"margin-right:6px;\">");
+                            html.append(escapeHtml(scope)).append(" (<strong>").append(count).append("</strong>)");
+                            html.append("</label>\n");
+                        }
+                        html.append("          </div>\n");
+                    }
+                    html.append("        </div>\n");
+
+                    // Flat table
+                    if (hasFlat) {
+                        html.append("        <div id=\"dep-flat-").append(moduleId).append("\" class=\"table-container\" style=\"");
+                        if (!"flat".equals(defaultView)) html.append("display:none;");
+                        html.append("\">\n");
+                        html.append("          <table id=\"dep-table-").append(moduleId).append("\">\n");
+                        html.append("            <tr><th>Group</th><th>Artifact</th><th>Version</th><th>Scope</th><th>Type</th><th>Optional</th><th>Depth</th></tr>\n");
+                        for (var d : deps.getFlat()) {
+                            String ga = (d.getGroupId()==null?"":d.getGroupId()) + ":" + (d.getArtifactId()==null?"":d.getArtifactId());
+                            String scope = d.getScope()==null?"":d.getScope();
+                            String version = d.getVersion()==null?"":d.getVersion();
+                            String type = d.getType()==null?"":d.getType();
+                            String optional = d.isOptional()?"true":"false";
+                            int depth = d.getDepth()==null?1:d.getDepth();
+                            html.append("            <tr class=\"dep-row\" data-module=\"").append(moduleId)
+                                .append("\" data-ga=\"").append(escapeHtml(ga))
+                                .append("\" data-scope=\"").append(escapeHtml(scope))
+                                .append("\" data-version=\"").append(escapeHtml(version))
+                                .append("\" data-type=\"").append(escapeHtml(type))
+                                .append("\" data-optional=\"").append(optional)
+                                .append("\" data-depth=\"").append(String.valueOf(depth)).append("\">\n");
+                            html.append("              <td>").append(escapeHtml(d.getGroupId())).append("</td>\n");
+                            html.append("              <td><strong>").append(escapeHtml(d.getArtifactId())).append("</strong></td>\n");
+                            html.append("              <td><code>").append(escapeHtml(version)).append("</code></td>\n");
+                            html.append("              <td>").append(escapeHtml(scope)).append("</td>\n");
+                            html.append("              <td>").append(escapeHtml(type)).append("</td>\n");
+                            html.append("              <td>").append(d.isOptional()?"✅":"-").append("</td>\n");
+                            html.append("              <td>").append(String.valueOf(depth)).append("</td>\n");
+                            html.append("            </tr>\n");
+                        }
+                        html.append("          </table>\n");
+                        html.append("        </div>\n");
+
+                        // Duplicates area
+                        html.append("        <div id=\"dep-dupes-").append(moduleId).append("\" style=\"font-size:0.95em; color:#555; margin-top:6px;\"></div>\n");
+                    }
+
+                    // Tree view (top-level only for now)
+                    if (hasTree) {
+                        html.append("        <div id=\"dep-tree-").append(moduleId).append("\" style=\"");
+                        if (!"tree".equals(defaultView)) html.append("display:none;");
+                        html.append("\">\n");
+                        html.append("          <ul style=\"padding-left:18px;\">\n");
+                        for (var n : deps.getTree()) {
+                            String scope = n.getScope()==null?"":n.getScope();
+                            String ga = (n.getGroupId()==null?"":n.getGroupId()) + ":" + (n.getArtifactId()==null?"":n.getArtifactId());
+                            String version = n.getVersion()==null?"":n.getVersion();
+                            String type = n.getType()==null?"":n.getType();
+                            String optional = n.isOptional()?"true":"false";
+                            html.append("            <li class=\"dep-node\" data-module=\"").append(moduleId)
+                                .append("\" data-ga=\"").append(escapeHtml(ga))
+                                .append("\" data-scope=\"").append(escapeHtml(scope))
+                                .append("\" data-version=\"").append(escapeHtml(version))
+                                .append("\" data-type=\"").append(escapeHtml(type))
+                                .append("\" data-optional=\"").append(optional)
+                                .append("\" data-depth=\"1\">");
+                            html.append(escapeHtml(ga)).append(":");
+                            html.append(" <code>").append(escapeHtml(version)).append("</code>");
+                            html.append(" [").append(escapeHtml(scope)).append("]");
+                            html.append("</li>\n");
+                        }
+                        html.append("          </ul>\n");
+                        html.append("        </div>\n");
+                    }
+
+                    // Register for JS init
+                    html.append("        <script>window.DEP_SECTIONS = window.DEP_SECTIONS || []; window.DEP_SECTIONS.push('")
+                        .append(moduleId).append("');</script>\n");
+                }
+
                 html.append("      </div>\n");
             });
         } else {
@@ -1406,6 +1613,52 @@ public class GenerateDescriptorMojo extends AbstractMojo {
         html.append("    }\n");
         html.append("    \n");
         html.append("    // Load saved theme on page load\n");
+    // Dependencies UI helpers
+    html.append("    // Dependencies UI\n");
+    html.append("    function byId(id){ return document.getElementById(id); }\n");
+    html.append("    function setDepView(modId){ const sel=byId('dep-view-'+modId); if(!sel) return; const v=sel.value; const flat=byId('dep-flat-'+modId); const tree=byId('dep-tree-'+modId); if(flat) flat.style.display=(v==='flat')?'':'none'; if(tree) tree.style.display=(v==='tree')?'':'none'; }\n");
+    html.append("    function filterDependencies(modId){\n");
+    html.append("      const term=(byId('dep-search-'+modId)?.value||'').toLowerCase();\n");
+    html.append("      const depthLimit=parseInt(byId('dep-depth-'+modId)?.value||'-1',10);\n");
+    html.append("      const scopesSel=document.querySelectorAll('input[data-scope-check=\\''+modId+'\\']:checked');\n");
+    html.append("      const selected=new Set(Array.from(scopesSel).map(cb=>cb.value));\n");
+    html.append("      const rows=document.querySelectorAll('#dep-table-'+modId+' tr.dep-row');\n");
+    html.append("      rows.forEach(row=>{\n");
+    html.append("        const ga=(row.dataset.ga||'').toLowerCase();\n");
+    html.append("        const ver=(row.dataset.version||'').toLowerCase();\n");
+    html.append("        const scope=(row.dataset.scope||'');\n");
+    html.append("        const depth=parseInt(row.dataset.depth||'1',10);\n");
+    html.append("        let ok=true;\n");
+    html.append("        if(selected.size>0 && !selected.has(scope)) ok=false;\n");
+    html.append("        if(depthLimit>=0 && depth>depthLimit) ok=false;\n");
+    html.append("        if(term && !(ga.includes(term)||ver.includes(term))) ok=false;\n");
+    html.append("        row.style.display=ok?'':'none';\n");
+    html.append("      });\n");
+    html.append("      const dupesEl=byId('dep-dupes-'+modId);\n");
+    html.append("      if(dupesEl){\n");
+    html.append("        const vis=Array.from(document.querySelectorAll('#dep-table-'+modId+' tr.dep-row')).filter(r=>r.style.display!=='none');\n");
+    html.append("        const map={};\n");
+    html.append("        vis.forEach(r=>{ const ga=r.dataset.ga; const v=r.dataset.version||''; (map[ga]||(map[ga]=new Set())).add(v);});\n");
+    html.append("        const entries=Object.entries(map).filter(([ga,set])=>set.size>1);\n");
+    html.append("        if(entries.length){ dupesEl.innerHTML='⚠️ Duplicates detected: '+entries.map(([ga,set])=>ga+' → '+Array.from(set).join(', ')).join(' | '); } else { dupesEl.innerHTML=''; }\n");
+    html.append("      }\n");
+    html.append("      const nodes=document.querySelectorAll('#dep-tree-'+modId+' .dep-node');\n");
+    html.append("      nodes.forEach(li=>{ const ga=(li.dataset.ga||'').toLowerCase(); const ver=(li.dataset.version||'').toLowerCase(); const scope=(li.dataset.scope||''); const depth=parseInt(li.dataset.depth||'1',10); let show=true; if(selected.size>0 && !selected.has(scope)) show=false; if(depthLimit>=0 && depth>depthLimit) show=false; if(term && !(ga.includes(term)||ver.includes(term))) show=false; li.style.display=show?'':'none'; });\n");
+    html.append("    }\n");
+    html.append("    function initDependenciesSection(modId){\n");
+    html.append("      const sel=byId('dep-view-'+modId); if(sel) sel.addEventListener('change',()=>setDepView(modId));\n");
+    html.append("      const s=byId('dep-search-'+modId); if(s) s.addEventListener('input',()=>filterDependencies(modId));\n");
+    html.append("      const d=byId('dep-depth-'+modId); if(d) d.addEventListener('input',()=>filterDependencies(modId));\n");
+    html.append("      document.querySelectorAll('input[data-scope-check=\\''+modId+'\\']').forEach(cb=>cb.addEventListener('change',()=>filterDependencies(modId)));\n");
+    html.append("      setDepView(modId); filterDependencies(modId);\n");
+    html.append("    }\n");
+    html.append("    function exportCsv(modId){\n");
+    html.append("      const rows=Array.from(document.querySelectorAll('#dep-table-'+modId+' tr.dep-row')).filter(r=>r.style.display!=='none');\n");
+    html.append("      let csv='groupId,artifactId,version,scope,type,optional,depth\\n';\n");
+    html.append("      rows.forEach(r=>{ const parts=(r.dataset.ga||':').split(':'); const line=[parts[0]||'',parts[1]||'',r.dataset.version||'',r.dataset.scope||'',r.dataset.type||'',r.dataset.optional||'false',r.dataset.depth||'']; csv+=line.map(v=>\"\"+String(v).replace(/\"/g,'\"\"')+\"\").join(',')+'\\n'; });\n");
+    html.append("      const blob=new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=modId+'-dependencies.csv'; document.body.appendChild(a); a.click(); a.remove();\n");
+    html.append("    }\n");
+
         html.append("    document.addEventListener('DOMContentLoaded', function() {\n");
         html.append("      const savedTheme = localStorage.getItem('theme');\n");
         html.append("      const themeIcon = document.querySelector('.theme-icon');\n");
@@ -1415,6 +1668,10 @@ public class GenerateDescriptorMojo extends AbstractMojo {
         html.append("        themeIcon.textContent = '☀️';\n");
         html.append("      }\n");
         html.append("    });\n");
+        html.append("    document.addEventListener('DOMContentLoaded', function() {\n");
+        html.append("      if (window.DEP_SECTIONS) { window.DEP_SECTIONS.forEach(function(id){ try { initDependenciesSection(id); } catch(e) {} }); }\n");
+        html.append("    });\n");
+
         html.append("  </script>\n");
         html.append("</body>\n");
         html.append("</html>\n");

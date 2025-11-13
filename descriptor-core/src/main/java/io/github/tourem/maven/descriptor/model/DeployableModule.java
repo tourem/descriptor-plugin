@@ -117,5 +117,11 @@ public class DeployableModule {
      * (Jib, Spring Boot build-image, Fabric8, Quarkus, Micronaut, ...).
      */
     private ContainerInfo container;
+
+    /**
+     * Dependency information for this module (optional, only when explicitly enabled
+     * and typically for executable modules).
+     */
+    private DependencyTreeInfo dependencies;
 }
 

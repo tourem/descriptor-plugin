@@ -40,11 +40,27 @@ public class MavenProjectAnalyzer {
     private final GitInfoCollector gitInfoCollector;
     private final List<FrameworkDetector> frameworkDetectors;
     private final DockerImageDetector dockerImageDetector;
+    private final DependencyTreeCollector dependencyTreeCollector;
+    private final io.github.tourem.maven.descriptor.model.DependencyTreeOptions dependencyTreeOptions;
 
     /**
      * Default constructor that initializes all dependencies.
      */
     public MavenProjectAnalyzer() {
+        this(io.github.tourem.maven.descriptor.model.DependencyTreeOptions.builder()
+                .include(false)
+                .depth(-1)
+                .scopes(io.github.tourem.maven.descriptor.model.DependencyTreeOptions.defaultScopes())
+                .format(io.github.tourem.maven.descriptor.model.DependencyTreeFormat.FLAT)
+                .excludeTransitive(false)
+                .includeOptional(false)
+                .build());
+    }
+
+    /**
+     * Constructor allowing dependency tree options to be provided by the plugin.
+     */
+    public MavenProjectAnalyzer(io.github.tourem.maven.descriptor.model.DependencyTreeOptions options) {
         this.pathGenerator = new MavenRepositoryPathGenerator();
         this.springBootDetector = new SpringBootDetector();
         this.profileDetector = new SpringBootProfileDetector();
@@ -56,6 +72,8 @@ public class MavenProjectAnalyzer {
         this.gitInfoCollector = new GitInfoCollector();
         this.frameworkDetectors = loadFrameworkDetectors();
         this.dockerImageDetector = new DockerImageDetector();
+        this.dependencyTreeCollector = new DependencyTreeCollector();
+        this.dependencyTreeOptions = options != null ? options : io.github.tourem.maven.descriptor.model.DependencyTreeOptions.builder().include(false).build();
     }
 
     /**
@@ -294,6 +312,18 @@ public class MavenProjectAnalyzer {
         // Container image detection (maintained plugins only)
         var containerInfo = dockerImageDetector.detect(model, modulePath);
 
+        // Dependency tree collection (optional, typically for executables)
+        io.github.tourem.maven.descriptor.model.DependencyTreeInfo dependencyTreeInfo = null;
+        try {
+            boolean shouldCollect = dependencyTreeOptions != null && dependencyTreeOptions.isInclude()
+                    && ((executableInfo != null && executableInfo.isExecutable()) || isSpringBoot);
+            if (shouldCollect) {
+                dependencyTreeInfo = dependencyTreeCollector.collect(model, modulePath, dependencyTreeOptions);
+            }
+        } catch (Exception e) {
+            log.debug("Dependency tree collection failed for {}:{} - {}", groupId, artifactId, e.getMessage());
+        }
+
         DeployableModule.DeployableModuleBuilder builder = DeployableModule.builder()
                 .groupId(groupId)
                 .artifactId(artifactId)
@@ -311,7 +341,8 @@ public class MavenProjectAnalyzer {
                 .localDependencies(localDeps)
                 .buildPlugins(buildPlugins)
                 .executableInfo(executableInfo)
-                .container(containerInfo);
+                .container(containerInfo)
+                .dependencies(dependencyTreeInfo);
 
         // Apply framework detectors via SPI
         for (FrameworkDetector detector : frameworkDetectors) {
