@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Nothing yet.
+
+
+
+## [2.0.0] - 2025-11-13
+
+### Changed
+- Project rename: descriptor-plugin ➜ deploy-manifest-plugin
+  - Artifact coordinates: `io.github.tourem:deploy-manifest-plugin`
+  - Module renames: `descriptor-core` ➜ `deploy-manifest-core`, `descriptor-plugin` ➜ `deploy-manifest-plugin`
+  - Updated repository URLs, badges, and CI/CD workflows
+  - README rewritten to hero style and updated to new name and coordinates
+  - Note: Mojo class name and `descriptor.*` parameters are kept for backward compatibility (output files still default to `descriptor.json`)
+- Documentation cleanup: removed internal working docs from the repo
+
+### Added
+- Dependency Tree for executable modules (optional, disabled by default)
+  - JSON/YAML: `dependencies` section with `summary`, and either `flat` and/or `tree` according to configuration
+  - HTML: interactive Dependencies section per module (search, scope/depth filters, Flat/Tree views, CSV export, duplicate detection)
+  - Limitation: first iteration collects only direct dependencies declared in the POM; full transitive resolution planned next
+
+### Removed
+- Internal docs files moved out of the repo: `dependency-tree-feature-prompt.md`, `maven-docker-plugins.md`, `readme-hero-section.md`
+
+
 
 #### 🚀 Advanced Features (Feature Branch: feature/advanced-features)
 
@@ -173,8 +199,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release of the Descriptor Plugin
 - Multi-module Maven project structure
-- Core library (`descriptor-core`) for Maven project analysis
-- Maven plugin (`descriptor-plugin`) for generating deployment descriptors
+- Core library (`deploy-manifest-core`) for Maven project analysis
+- Maven plugin (`deploy-manifest-plugin`) for generating deployment manifests
 - Automatic detection of deployable modules (JAR, WAR, EAR)
 - Spring Boot executable detection
 - Environment-specific configuration extraction (dev, hml, prod)
@@ -196,14 +222,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Module Structure
 ```
-descriptor-parent/
-├── descriptor-core/         # Core analysis library
-└── descriptor-plugin/       # Maven plugin
+deploy-manifest-parent/
+├── deploy-manifest-core/         # Core analysis library
+└── deploy-manifest-plugin/       # Maven plugin
 ```
 
 #### Plugin Configuration
 - **groupId**: `io.github.tourem`
-- **artifactId**: `descriptor-plugin`
+- **artifactId**: `deploy-manifest-plugin`
 - **version**: `1.0.0`
 
 #### System Properties
@@ -215,10 +241,10 @@ descriptor-parent/
 #### Usage
 ```bash
 # Basic usage
-mvn io.github.tourem:descriptor-plugin:1.0.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:1.0.0:generate
 
 # With custom output
-mvn io.github.tourem:descriptor-plugin:1.0.0:generate \
+mvn io.github.tourem:deploy-manifest-plugin:1.0.0:generate \
   -Ddescriptor.outputFile=deployment.json \
   -Ddescriptor.outputDirectory=target
 ```

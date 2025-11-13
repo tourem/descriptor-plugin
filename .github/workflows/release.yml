@@ -1,4 +1,4 @@
-name: Release Descriptor Plugin
+name: Release Deploy Manifest Plugin
 
 on:
   workflow_dispatch:
@@ -107,7 +107,7 @@ jobs:
       
       - name: Commit release version
         run: |
-          git add pom.xml descriptor-core/pom.xml descriptor-plugin/pom.xml
+          git add pom.xml deploy-manifest-core/pom.xml deploy-manifest-plugin/pom.xml
           git commit -m "Release version ${{ steps.calc_version.outputs.release_version }}"
           git tag -a "v${{ steps.calc_version.outputs.release_version }}" \
             -m "Release version ${{ steps.calc_version.outputs.release_version }}"
@@ -119,7 +119,7 @@ jobs:
       
       - name: Commit next snapshot version
         run: |
-          git add pom.xml descriptor-core/pom.xml descriptor-plugin/pom.xml
+          git add pom.xml deploy-manifest-core/pom.xml deploy-manifest-plugin/pom.xml
           git commit -m "Prepare next development iteration ${{ steps.calc_version.outputs.next_snapshot }}"
       
       - name: Push changes and tags
@@ -135,20 +135,20 @@ jobs:
           tag_name: v${{ steps.calc_version.outputs.release_version }}
           release_name: Release ${{ steps.calc_version.outputs.release_version }}
           body: |
-            ## Descriptor Plugin v${{ steps.calc_version.outputs.release_version }}
+            ## Deploy Manifest Plugin v${{ steps.calc_version.outputs.release_version }}
             
             ### 📦 Maven Coordinates
             ```xml
             <dependency>
               <groupId>io.github.tourem</groupId>
-              <artifactId>descriptor-plugin</artifactId>
+              <artifactId>deploy-manifest-plugin</artifactId>
               <version>${{ steps.calc_version.outputs.release_version }}</version>
             </dependency>
             ```
             
             ### 🚀 Usage
             ```bash
-            mvn io.github.tourem:descriptor-plugin:${{ steps.calc_version.outputs.release_version }}:generate
+            mvn io.github.tourem:deploy-manifest-plugin:${{ steps.calc_version.outputs.release_version }}:generate
             ```
             
             ### 📝 Changes

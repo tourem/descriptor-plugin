@@ -1,6 +1,6 @@
-# Contributing to Maven Descriptor Plugin
+# Contributing to Maven Deploy Manifest Plugin
 
-Thank you for your interest in contributing to the Maven Descriptor Plugin! We welcome contributions from the community.
+Thank you for your interest in contributing to the Maven Deploy Manifest Plugin! We welcome contributions from the community.
 
 ## 🚀 Getting Started
 
@@ -15,12 +15,12 @@ Thank you for your interest in contributing to the Maven Descriptor Plugin! We w
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/descriptor-plugin.git
-   cd descriptor-plugin
+   git clone https://github.com/YOUR_USERNAME/deploy-manifest-plugin.git
+   cd deploy-manifest-plugin
    ```
 3. **Add upstream remote**:
    ```bash
-   git remote add upstream https://github.com/tourem/descriptor-plugin.git
+   git remote add upstream https://github.com/tourem/deploy-manifest-plugin.git
    ```
 4. **Build the project**:
    ```bash
@@ -161,11 +161,11 @@ void shouldDetectSpringBootWithoutPlugin() {
 ## 🏗️ Project Structure
 
 ```
-descriptor-plugin/
-├── descriptor-core/          # Core analysis logic
+deploy-manifest-plugin/
+├── deploy-manifest-core/     # Core analysis logic
 │   ├── src/main/java/       # Source code
 │   └── src/test/java/       # Unit tests
-├── descriptor-plugin/        # Maven plugin wrapper
+├── deploy-manifest-plugin/   # Maven plugin wrapper
 └── docs/                     # Documentation
 ```
 
