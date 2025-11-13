@@ -326,6 +326,18 @@ For brevity, the full parameter tables are collapsed.
 | `webhookTimeout` | `descriptor.webhookTimeout` | `10` | Webhook timeout in seconds |
 
 
+### Dependency Tree Parameters
+
+| Parameter | System Property | Default | Description |
+|-----------|-----------------|---------|-------------|
+| `includeDependencyTree` | `descriptor.includeDependencyTree` | `false` | Enable dependency tree collection |
+| `dependencyTreeDepth` | `descriptor.dependencyTreeDepth` | `-1` | Depth: `-1`=unlimited, `0`=direct-only |
+| `dependencyScopes` | `descriptor.dependencyScopes` | `compile,runtime` | Comma-separated scopes to include |
+| `dependencyTreeFormat` | `descriptor.dependencyTreeFormat` | `flat` | Output format: `flat`, `tree`, `both` |
+| `excludeTransitive` | `descriptor.excludeTransitive` | `false` | Exclude transitive dependencies entirely |
+| `includeOptional` | `descriptor.includeOptional` | `false` | Include optional dependencies |
+
+
 </details>
 
 
