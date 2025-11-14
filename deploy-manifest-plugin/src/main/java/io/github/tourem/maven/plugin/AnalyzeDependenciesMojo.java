@@ -269,11 +269,25 @@ public class AnalyzeDependenciesMojo extends AbstractMojo {
             String aid = d.getArtifactId() == null ? "" : d.getArtifactId();
             String gid = d.getGroupId() == null ? "" : d.getGroupId();
             String scope = d.getScope();
+
+            // Provided scope dependencies
             if ("provided".equals(scope)) reasons.add("provided-scope");
+
+            // Annotation processors
             if (aid.equals("lombok") || (gid.equals("org.projectlombok"))) reasons.add("annotation-processor:lombok");
             if (aid.endsWith("-processor")) reasons.add("annotation-processor");
+
+            // Dev tools
             if (aid.contains("devtools")) reasons.add("devtools");
+
+            // Runtime agents
             if (aid.equals("aspectjweaver")) reasons.add("runtime-agent:aspectjweaver");
+
+            // Spring Boot Starters (meta-dependencies)
+            if (isSpringBootStarter(gid, aid)) {
+                reasons.add("spring-boot-starter:" + aid);
+            }
+
             if (!reasons.isEmpty()) {
                 d.setSuspectedFalsePositive(true);
                 d.setFalsePositiveReasons(reasons);
@@ -283,6 +297,55 @@ public class AnalyzeDependenciesMojo extends AbstractMojo {
                 d.setConfidence(0.9);
             }
         }
+    }
+
+    /**
+     * Check if a dependency is a Spring Boot Starter.
+     * Spring Boot Starters are meta-dependencies that bring transitive dependencies.
+     * They often appear as "unused" because the code uses the transitive dependencies,
+     * not the starter itself.
+     */
+    private boolean isSpringBootStarter(String groupId, String artifactId) {
+        if (!"org.springframework.boot".equals(groupId)) {
+            return false;
+        }
+
+        // Common Spring Boot Starters
+        return artifactId != null && (
+            artifactId.equals("spring-boot-starter-web") ||
+            artifactId.equals("spring-boot-starter-data-jpa") ||
+            artifactId.equals("spring-boot-starter-data-mongodb") ||
+            artifactId.equals("spring-boot-starter-data-redis") ||
+            artifactId.equals("spring-boot-starter-security") ||
+            artifactId.equals("spring-boot-starter-actuator") ||
+            artifactId.equals("spring-boot-starter-test") ||
+            artifactId.equals("spring-boot-starter-validation") ||
+            artifactId.equals("spring-boot-starter-webflux") ||
+            artifactId.equals("spring-boot-starter-amqp") ||
+            artifactId.equals("spring-boot-starter-batch") ||
+            artifactId.equals("spring-boot-starter-cache") ||
+            artifactId.equals("spring-boot-starter-mail") ||
+            artifactId.equals("spring-boot-starter-oauth2-client") ||
+            artifactId.equals("spring-boot-starter-oauth2-resource-server") ||
+            artifactId.equals("spring-boot-starter-thymeleaf") ||
+            artifactId.equals("spring-boot-starter-websocket") ||
+            artifactId.equals("spring-boot-starter-aop") ||
+            artifactId.equals("spring-boot-starter-artemis") ||
+            artifactId.equals("spring-boot-starter-data-cassandra") ||
+            artifactId.equals("spring-boot-starter-data-elasticsearch") ||
+            artifactId.equals("spring-boot-starter-data-jdbc") ||
+            artifactId.equals("spring-boot-starter-data-r2dbc") ||
+            artifactId.equals("spring-boot-starter-freemarker") ||
+            artifactId.equals("spring-boot-starter-graphql") ||
+            artifactId.equals("spring-boot-starter-integration") ||
+            artifactId.equals("spring-boot-starter-jdbc") ||
+            artifactId.equals("spring-boot-starter-jooq") ||
+            artifactId.equals("spring-boot-starter-json") ||
+            artifactId.equals("spring-boot-starter-logging") ||
+            artifactId.equals("spring-boot-starter-quartz") ||
+            artifactId.equals("spring-boot-starter-rsocket") ||
+            artifactId.startsWith("spring-boot-starter-") // Catch-all for other starters
+        );
     }
 
     private List<io.github.tourem.maven.descriptor.model.analysis.Recommendation> generateRecommendations(List<AnalyzedDependency> unused) {
