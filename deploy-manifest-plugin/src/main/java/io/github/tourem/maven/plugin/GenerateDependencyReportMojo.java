@@ -59,6 +59,15 @@ public class GenerateDependencyReportMojo extends AbstractMojo {
     @Parameter(property = "dependency.report.includePlugins", defaultValue = "true")
     private boolean includePlugins;
 
+    @Parameter(property = "dependency.report.lookupAvailableVersions", defaultValue = "true")
+    private boolean lookupAvailableVersions;
+
+    @Parameter(property = "dependency.report.maxAvailableVersions", defaultValue = "3")
+    private int maxAvailableVersions;
+
+    @Parameter(property = "dependency.report.versionLookupTimeoutMs", defaultValue = "5000")
+    private int versionLookupTimeoutMs;
+
     @Override
     public void execute() throws MojoExecutionException {
         try {
@@ -133,16 +142,82 @@ public class GenerateDependencyReportMojo extends AbstractMojo {
 
     private DependencyAnalysisResult runDependencyAnalysis() {
         File analysisFile = new File(getTargetDir(), "dependency-analysis.json");
+        DependencyAnalysisResult result = null;
+
         if (analysisFile.exists()) {
             try {
                 ObjectMapper mapper = new ObjectMapper();
                 mapper.registerModule(new JavaTimeModule());
-                return mapper.readValue(analysisFile, DependencyAnalysisResult.class);
+                result = mapper.readValue(analysisFile, DependencyAnalysisResult.class);
             } catch (Exception e) {
                 getLog().warn("Failed to read existing analysis: " + e.getMessage());
             }
         }
-        return null;
+
+        // Enrich ALL dependencies with available versions if requested
+        if (lookupAvailableVersions && result != null) {
+            enrichAllDependenciesWithVersions(result);
+        }
+
+        return result;
+    }
+
+    /**
+     * Enrich ALL dependencies (unused + undeclared) with available versions.
+     * This ensures the "Available Updates" tab shows all dependencies, not just problematic ones.
+     */
+    private void enrichAllDependenciesWithVersions(DependencyAnalysisResult result) {
+        if (result == null || result.getRawResults() == null) {
+            return;
+        }
+
+        try {
+            io.github.tourem.maven.descriptor.service.DependencyVersionLookup versionLookup =
+                new io.github.tourem.maven.descriptor.service.DependencyVersionLookup(
+                    project.getModel(),
+                    versionLookupTimeoutMs
+                );
+
+            // Enrich unused dependencies
+            if (result.getRawResults().getUnused() != null) {
+                for (io.github.tourem.maven.descriptor.model.analysis.AnalyzedDependency dep : result.getRawResults().getUnused()) {
+                    if (dep.getAvailableVersions() == null || dep.getAvailableVersions().isEmpty()) {
+                        enrichDependencyWithVersions(dep, versionLookup);
+                    }
+                }
+            }
+
+            // Enrich undeclared dependencies
+            if (result.getRawResults().getUndeclared() != null) {
+                for (io.github.tourem.maven.descriptor.model.analysis.AnalyzedDependency dep : result.getRawResults().getUndeclared()) {
+                    if (dep.getAvailableVersions() == null || dep.getAvailableVersions().isEmpty()) {
+                        enrichDependencyWithVersions(dep, versionLookup);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            getLog().warn("Failed to enrich dependencies with versions: " + e.getMessage());
+        }
+    }
+
+    private void enrichDependencyWithVersions(
+            io.github.tourem.maven.descriptor.model.analysis.AnalyzedDependency dep,
+            io.github.tourem.maven.descriptor.service.DependencyVersionLookup versionLookup) {
+        try {
+            List<String> availableVersions = versionLookup.lookupAvailableVersions(
+                dep.getGroupId(),
+                dep.getArtifactId(),
+                dep.getVersion(),
+                maxAvailableVersions
+            );
+
+            if (availableVersions != null && !availableVersions.isEmpty()) {
+                dep.setAvailableVersions(availableVersions);
+            }
+        } catch (Exception e) {
+            getLog().debug("Failed to lookup versions for " + dep.getGroupId() + ":" +
+                          dep.getArtifactId() + ": " + e.getMessage());
+        }
     }
 
 
@@ -316,7 +391,7 @@ public class GenerateDependencyReportMojo extends AbstractMojo {
         html.append("<div class=\"tabs\">\n");
         html.append("<button class=\"tab active\" onclick=\"showTab(this, 'overview')\">📊 Overview</button>\n");
         if (report.getDependencyTree() != null) {
-            html.append("<button class=\"tab\" onclick=\"showTab(this, 'dependencies')\">🧩 Dependencies</button>\n");
+            html.append("<button class=\"tab\" onclick=\"showTab(this, 'dependencies')\">📦 Dependency Tree</button>\n");
         }
         if (report.getAnalysis() != null) {
             html.append("<button class=\"tab\" onclick=\"showTab(this, 'analysis')\">🔍 Analysis</button>\n");
