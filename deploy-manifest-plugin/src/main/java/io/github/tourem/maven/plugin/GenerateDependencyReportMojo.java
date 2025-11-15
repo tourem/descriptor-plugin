@@ -348,6 +348,9 @@ public class GenerateDependencyReportMojo extends AbstractMojo {
         html.append(".badge-warn { background: #f59e0b1a; color: #f59e0b; }\n");
         html.append(".badge-error { background: #ef44441a; color: #ef4444; }\n");
         html.append(".badge-info { background: #3b82f61a; color: #3b82f6; }\n");
+        html.append(".badge-success { background: #10b9811a; color: #10b981; }\n");
+        html.append(".badge-scope { background: #6366f11a; color: #6366f1; }\n");
+        html.append(".badge-optional { background: #f59e0b1a; color: #f59e0b; }\n");
 
         // Code
         html.append("code { background: #2d2d2d; color: #f8f8f2; padding: 4px 8px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 0.9em; }\n");
@@ -359,6 +362,26 @@ public class GenerateDependencyReportMojo extends AbstractMojo {
         html.append(".version-outdated { background: #ef44441a; color: #ef4444; padding: 4px 8px; border-radius: 5px; font-weight: bold; }\n");
         html.append(".update-alert { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px; margin: 10px 0; border-radius: 5px; }\n");
         html.append(".update-critical { background: #fee2e2; border-left: 4px solid #ef4444; padding: 10px; margin: 10px 0; border-radius: 5px; }\n");
+
+        // Dependency Tree
+        html.append(".tree-container { margin: 20px 0; }\n");
+        html.append(".dependency-tree { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-top: 15px; font-family: 'Courier New', monospace; }\n");
+        html.append(".tree-node { margin: 5px 0; padding: 5px; border-radius: 5px; transition: background 0.2s; }\n");
+        html.append(".tree-node:hover { background: #e5e7eb; }\n");
+        html.append(".tree-toggle { cursor: pointer; display: inline-block; width: 20px; color: #667eea; font-weight: bold; user-select: none; }\n");
+        html.append(".tree-toggle:hover { color: #764ba2; }\n");
+        html.append(".tree-leaf { display: inline-block; width: 20px; color: #999; }\n");
+        html.append(".tree-artifact { margin-left: 5px; }\n");
+        html.append(".tree-children { margin-left: 20px; }\n");
+
+        // False Positive Row
+        html.append(".false-positive-row { background: #fef3c7 !important; }\n");
+        html.append(".false-positive-row:hover { background: #fde68a !important; }\n");
+
+        // Buttons
+        html.append(".btn { padding: 8px 16px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: all 0.3s; }\n");
+        html.append(".btn-secondary { background: #6366f1; color: white; }\n");
+        html.append(".btn-secondary:hover { background: #4f46e5; transform: translateY(-2px); }\n");
 
         html.append("</style>\n</head>\n<body>\n");
         html.append("<div class=\"container\">\n");
@@ -434,6 +457,25 @@ public class GenerateDependencyReportMojo extends AbstractMojo {
         html.append("  document.getElementById(tabName).classList.add('active');\n");
         html.append("  btn.classList.add('active');\n");
         html.append("}\n");
+        html.append("function toggleNode(nodeId) {\n");
+        html.append("  var node = document.getElementById(nodeId);\n");
+        html.append("  var toggle = node.previousElementSibling.querySelector('.tree-toggle');\n");
+        html.append("  if (node.style.display === 'none') {\n");
+        html.append("    node.style.display = 'block';\n");
+        html.append("    toggle.textContent = '▼';\n");
+        html.append("  } else {\n");
+        html.append("    node.style.display = 'none';\n");
+        html.append("    toggle.textContent = '▶';\n");
+        html.append("  }\n");
+        html.append("}\n");
+        html.append("function expandAll() {\n");
+        html.append("  document.querySelectorAll('.tree-children').forEach(n => n.style.display = 'block');\n");
+        html.append("  document.querySelectorAll('.tree-toggle').forEach(t => t.textContent = '▼');\n");
+        html.append("}\n");
+        html.append("function collapseAll() {\n");
+        html.append("  document.querySelectorAll('.tree-children').forEach(n => n.style.display = 'none');\n");
+        html.append("  document.querySelectorAll('.tree-toggle').forEach(t => t.textContent = '▶');\n");
+        html.append("}\n");
         html.append("</script>\n");
 
         html.append("</div>\n</body>\n</html>");
@@ -448,7 +490,7 @@ public class GenerateDependencyReportMojo extends AbstractMojo {
         if (report.getDependencyTree() == null) return;
 
         html.append("<div id=\"dependencies\" class=\"tab-content\">\n");
-        html.append("<div class=\"section-header\">🧩 Dependency Tree Summary</div>\n");
+        html.append("<div class=\"section-header\">📦 Dependency Tree Summary</div>\n");
 
         if (report.getDependencyTree().getSummary() != null) {
             var summary = report.getDependencyTree().getSummary();
@@ -467,7 +509,60 @@ public class GenerateDependencyReportMojo extends AbstractMojo {
             html.append("</table>\n");
         }
 
+        // Add dependency tree visualization
+        if (report.getDependencyTree().getTree() != null && !report.getDependencyTree().getTree().isEmpty()) {
+            html.append("<div class=\"section-header\">🌳 Dependency Tree</div>\n");
+            html.append("<div class=\"tree-container\">\n");
+            html.append("<button class=\"btn btn-secondary\" onclick=\"expandAll()\">Expand All</button>\n");
+            html.append("<button class=\"btn btn-secondary\" onclick=\"collapseAll()\">Collapse All</button>\n");
+            html.append("<div class=\"dependency-tree\">\n");
+
+            for (var node : report.getDependencyTree().getTree()) {
+                writeDependencyTreeNode(html, node, 0);
+            }
+
+            html.append("</div>\n");
+            html.append("</div>\n");
+        }
+
         html.append("</div>\n");
+    }
+
+    private void writeDependencyTreeNode(StringBuilder html, io.github.tourem.maven.descriptor.model.DependencyNode node, int depth) {
+        String indent = "&nbsp;".repeat(depth * 4);
+        String nodeId = "node-" + node.getGroupId().replace(".", "-") + "-" + node.getArtifactId() + "-" + depth;
+
+        html.append("<div class=\"tree-node\" style=\"margin-left: ").append(depth * 20).append("px;\">\n");
+
+        if (node.getChildren() != null && !node.getChildren().isEmpty()) {
+            html.append("<span class=\"tree-toggle\" onclick=\"toggleNode('").append(nodeId).append("')\">▶</span>\n");
+        } else {
+            html.append("<span class=\"tree-leaf\">•</span>\n");
+        }
+
+        html.append("<span class=\"tree-artifact\">");
+        html.append("<strong>").append(escapeHtml(node.getArtifactId())).append("</strong>");
+        html.append(":<code>").append(escapeHtml(node.getVersion())).append("</code>");
+
+        if (node.getScope() != null && !node.getScope().equals("compile")) {
+            html.append(" <span class=\"badge badge-scope\">").append(escapeHtml(node.getScope())).append("</span>");
+        }
+
+        if (node.isOptional()) {
+            html.append(" <span class=\"badge badge-optional\">optional</span>");
+        }
+
+        html.append("<br><small style=\"color: #666;\">").append(escapeHtml(node.getGroupId())).append("</small>");
+        html.append("</span>\n");
+        html.append("</div>\n");
+
+        if (node.getChildren() != null && !node.getChildren().isEmpty()) {
+            html.append("<div id=\"").append(nodeId).append("\" class=\"tree-children\" style=\"display: none;\">\n");
+            for (var child : node.getChildren()) {
+                writeDependencyTreeNode(html, child, depth + 1);
+            }
+            html.append("</div>\n");
+        }
     }
 
     private void writeHtmlAnalysisTab(StringBuilder html, DependencyReport report) {
@@ -503,13 +598,132 @@ public class GenerateDependencyReportMojo extends AbstractMojo {
         }
 
         if (report.getAnalysis().getSummary() != null && report.getAnalysis().getSummary().getIssues() != null) {
-            html.append("<div class=\"section-header\">⚠️ Issues</div>\n");
+            html.append("<div class=\"section-header\">⚠️ Issues Summary</div>\n");
             var issues = report.getAnalysis().getSummary().getIssues();
             html.append("<table>\n");
             html.append("<tr><th>Issue Type</th><th>Count</th></tr>\n");
             html.append("<tr><td>Unused Dependencies</td><td>").append(issues.getUnused()).append("</td></tr>\n");
             html.append("<tr><td>Undeclared Dependencies</td><td>").append(issues.getUndeclared()).append("</td></tr>\n");
             html.append("</table>\n");
+        }
+
+        // Add detailed unused dependencies list
+        if (report.getAnalysis().getRawResults() != null && report.getAnalysis().getRawResults().getUnused() != null
+            && !report.getAnalysis().getRawResults().getUnused().isEmpty()) {
+            html.append("<div class=\"section-header\">🗑️ Unused Dependencies (").append(report.getAnalysis().getRawResults().getUnused().size()).append(")</div>\n");
+            html.append("<div class=\"table-container\"><table>\n");
+            html.append("<tr><th>Artifact</th><th>Version</th><th>Scope</th><th>Size</th><th>Confidence</th><th>Git Context</th></tr>\n");
+
+            for (var dep : report.getAnalysis().getRawResults().getUnused()) {
+                html.append("<tr");
+                if (dep.getSuspectedFalsePositive() != null && dep.getSuspectedFalsePositive()) {
+                    html.append(" class=\"false-positive-row\"");
+                }
+                html.append(">\n");
+
+                // Artifact
+                html.append("<td><strong>").append(escapeHtml(dep.getArtifactId())).append("</strong>");
+                html.append("<br><small style=\"color: #666;\">").append(escapeHtml(dep.getGroupId())).append("</small>");
+                if (dep.getSuspectedFalsePositive() != null && dep.getSuspectedFalsePositive()) {
+                    html.append("<br><span class=\"badge badge-warn\">⚠️ Suspected False Positive</span>");
+                    if (dep.getFalsePositiveReasons() != null && !dep.getFalsePositiveReasons().isEmpty()) {
+                        html.append("<br><small>").append(escapeHtml(String.join(", ", dep.getFalsePositiveReasons()))).append("</small>");
+                    }
+                }
+                html.append("</td>\n");
+
+                // Version
+                html.append("<td><code>").append(escapeHtml(dep.getVersion())).append("</code></td>\n");
+
+                // Scope
+                html.append("<td><span class=\"badge badge-scope\">").append(escapeHtml(dep.getScope())).append("</span></td>\n");
+
+                // Size
+                if (dep.getMetadata() != null && dep.getMetadata().getSizeKB() != null) {
+                    html.append("<td>").append(String.format("%.2f", dep.getMetadata().getSizeKB())).append(" KB</td>\n");
+                } else {
+                    html.append("<td>-</td>\n");
+                }
+
+                // Confidence
+                if (dep.getConfidence() != null) {
+                    String confidenceClass = dep.getConfidence() > 0.7 ? "badge-error" : (dep.getConfidence() > 0.4 ? "badge-warn" : "badge-success");
+                    String confidenceLabel = dep.getConfidence() > 0.7 ? "HIGH" : (dep.getConfidence() > 0.4 ? "MEDIUM" : "LOW");
+                    html.append("<td><span class=\"badge ").append(confidenceClass).append("\">").append(confidenceLabel).append("</span></td>\n");
+                } else {
+                    html.append("<td>-</td>\n");
+                }
+
+                // Git Context
+                if (dep.getGit() != null) {
+                    html.append("<td><small>");
+                    html.append("👤 ").append(escapeHtml(dep.getGit().getAuthorName()));
+                    html.append("<br>📅 ").append(dep.getGit().getDaysAgo()).append(" days ago");
+                    if (dep.getGit().getCommitMessage() != null && !dep.getGit().getCommitMessage().isEmpty()) {
+                        String shortMsg = dep.getGit().getCommitMessage().length() > 50
+                            ? dep.getGit().getCommitMessage().substring(0, 50) + "..."
+                            : dep.getGit().getCommitMessage();
+                        html.append("<br>💬 ").append(escapeHtml(shortMsg.trim()));
+                    }
+                    html.append("</small></td>\n");
+                } else {
+                    html.append("<td>-</td>\n");
+                }
+
+                html.append("</tr>\n");
+            }
+
+            html.append("</table></div>\n");
+        }
+
+        // Add undeclared dependencies list
+        if (report.getAnalysis().getRawResults() != null && report.getAnalysis().getRawResults().getUndeclared() != null
+            && !report.getAnalysis().getRawResults().getUndeclared().isEmpty()) {
+            html.append("<div class=\"section-header\">📦 Undeclared Dependencies (").append(report.getAnalysis().getRawResults().getUndeclared().size()).append(")</div>\n");
+            html.append("<div class=\"table-container\"><table>\n");
+            html.append("<tr><th>Artifact</th><th>Version</th><th>Scope</th><th>Recommendation</th></tr>\n");
+
+            for (var dep : report.getAnalysis().getRawResults().getUndeclared()) {
+                html.append("<tr>\n");
+                html.append("<td><strong>").append(escapeHtml(dep.getArtifactId())).append("</strong>");
+                html.append("<br><small style=\"color: #666;\">").append(escapeHtml(dep.getGroupId())).append("</small></td>\n");
+                html.append("<td><code>").append(escapeHtml(dep.getVersion())).append("</code></td>\n");
+                html.append("<td><span class=\"badge badge-scope\">").append(escapeHtml(dep.getScope())).append("</span></td>\n");
+                html.append("<td><small>Add to pom.xml dependencies section</small></td>\n");
+                html.append("</tr>\n");
+            }
+
+            html.append("</table></div>\n");
+        }
+
+        // Add version conflicts if available
+        if (report.getAnalysis().getVersionConflicts() != null && !report.getAnalysis().getVersionConflicts().isEmpty()) {
+            html.append("<div class=\"section-header\">⚠️ Version Conflicts (").append(report.getAnalysis().getVersionConflicts().size()).append(")</div>\n");
+            html.append("<div class=\"table-container\"><table>\n");
+            html.append("<tr><th>Artifact</th><th>Versions</th><th>Risk</th><th>Recommendation</th></tr>\n");
+
+            for (var conflict : report.getAnalysis().getVersionConflicts()) {
+                html.append("<tr>\n");
+                html.append("<td><strong>").append(escapeHtml(conflict.getArtifactId())).append("</strong>");
+                html.append("<br><small style=\"color: #666;\">").append(escapeHtml(conflict.getGroupId())).append("</small></td>\n");
+                html.append("<td><small>");
+                if (conflict.getVersions() != null) {
+                    html.append(escapeHtml(String.join(", ", conflict.getVersions())));
+                }
+                html.append("</small></td>\n");
+                String riskClass = "warn";
+                String riskLabel = "MEDIUM";
+                if (conflict.getRiskLevel() != null) {
+                    riskClass = conflict.getRiskLevel().toString().toLowerCase();
+                    riskLabel = conflict.getRiskLevel().toString();
+                }
+                html.append("<td><span class=\"badge badge-").append(riskClass).append("\">")
+                    .append(escapeHtml(riskLabel)).append("</span></td>\n");
+                html.append("<td><small>Align versions using dependencyManagement</small></td>\n");
+                html.append("</tr>\n");
+            }
+
+            html.append("</table></div>\n");
         }
 
         html.append("</div>\n");
