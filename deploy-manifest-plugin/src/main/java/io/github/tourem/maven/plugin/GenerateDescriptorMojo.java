@@ -191,6 +191,23 @@ public class GenerateDescriptorMojo extends AbstractMojo {
     private boolean compress;
 
     /**
+     * Include all generated reports in the archive (dependency-report, dependency-analysis).
+     * Default: false
+     *
+     * When enabled and format is specified (zip, tar.gz, tar.bz2), the archive will include:
+     * - descriptor.json, descriptor.yaml, descriptor.html (always included)
+     * - dependency-report.json, dependency-report.html (if present in target/)
+     * - dependency-analysis.json, dependency-analysis.html (if present in target/)
+     *
+     * This is useful to create a complete documentation package with all reports in one archive.
+     *
+     * Example:
+     * mvn deploy-manifest:generate -Ddescriptor.format=zip -Ddescriptor.includeAllReports=true
+     */
+    @Parameter(property = "descriptor.includeAllReports", defaultValue = "false")
+    private boolean includeAllReports;
+
+    /**
      * Webhook URL to notify after successful descriptor generation.
      * Optional parameter.
      *
@@ -565,6 +582,11 @@ public class GenerateDescriptorMojo extends AbstractMojo {
                 filesToArchive.add(htmlPath);
             }
 
+            // Include all reports if requested (dependency-report, dependency-analysis)
+            if (includeAllReports && format != null && !format.trim().isEmpty()) {
+                collectAdditionalReports(filesToArchive, primaryOutput.getParent());
+            }
+
             // Handle archiving and attachment if format is specified
             File finalArtifact = primaryOutput.toFile();
 
@@ -726,6 +748,39 @@ public class GenerateDescriptorMojo extends AbstractMojo {
                 taos.closeArchiveEntry();
             }
             taos.finish();
+        }
+    }
+
+    /**
+     * Collects additional reports (dependency-report, dependency-analysis) from target directory.
+     * Only includes files that exist.
+     *
+     * @param filesToArchive list to add found files to
+     * @param targetDir target directory where reports are located
+     */
+    private void collectAdditionalReports(java.util.List<java.nio.file.Path> filesToArchive, java.nio.file.Path targetDir) {
+        // List of additional report files to look for
+        String[] reportFiles = {
+            "dependency-report.json",
+            "dependency-report.html",
+            "dependency-analysis.json",
+            "dependency-analysis.html"
+        };
+
+        int foundCount = 0;
+        for (String reportFile : reportFiles) {
+            java.nio.file.Path reportPath = targetDir.resolve(reportFile);
+            if (Files.exists(reportPath)) {
+                filesToArchive.add(reportPath);
+                foundCount++;
+                getLog().debug("  + Including additional report: " + reportFile);
+            }
+        }
+
+        if (foundCount > 0) {
+            getLog().info("  + Including " + foundCount + " additional report(s) in archive");
+        } else {
+            getLog().debug("  No additional reports found in target directory");
         }
     }
 

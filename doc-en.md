@@ -36,7 +36,7 @@ This guide explains how to install, run, and get the most out of `io.github.tour
 Run without modifying the POM:
 
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.4.0:generate -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.generateHtml=true
 ```
 
 POM configuration for reproducible builds:
@@ -162,14 +162,14 @@ An intelligence layer on top of Maven Dependency Plugin that transforms raw warn
 **Usage example**:
 ```bash
 # Simple analysis
-mvn io.github.tourem:deploy-manifest-plugin:2.4.0:analyze-dependencies
+mvn io.github.tourem:deploy-manifest-plugin:2.5.0:analyze-dependencies
 
 # Generated results
 # - target/dependency-analysis.json (full report)
 # - target/dependency-analysis.html (interactive dashboard)
 
 # Comprehensive dependency & plugin report
-mvn io.github.tourem:deploy-manifest-plugin:2.4.0:dependency-report
+mvn io.github.tourem:deploy-manifest-plugin:2.5.0:dependency-report
 
 # Generated results
 # - target/dependency-report.json (consolidated report)
@@ -250,7 +250,7 @@ mvn io.github.tourem:deploy-manifest-plugin:2.4.0:dependency-report
 ```yaml
 # GitHub Actions
 - name: Analyze Dependencies
-  run: mvn io.github.tourem:deploy-manifest-plugin:2.4.0:analyze-dependencies
+  run: mvn io.github.tourem:deploy-manifest-plugin:2.5.0:analyze-dependencies
 
 - name: Check Health Score
   run: |
@@ -282,37 +282,37 @@ mvn io.github.tourem:deploy-manifest-plugin:2.4.0:dependency-report
 
 Minimal JSON:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.4.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate
 ```
 
 JSON + YAML + HTML:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.4.0:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
 ```
 
 Dependency tree (Tree+Flat) with compile+runtime scopes:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.4.0:generate -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeFormat=both -Ddescriptor.dependencyScopes=compile,runtime
+mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeFormat=both -Ddescriptor.dependencyScopes=compile,runtime
 ```
 
 Licenses with warnings and custom incompatible list:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.4.0:generate -Ddescriptor.licenseWarnings=true -Ddescriptor.incompatibleLicenses=GPL-3.0,AGPL-3.0,SSPL
+mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.licenseWarnings=true -Ddescriptor.incompatibleLicenses=GPL-3.0,AGPL-3.0,SSPL
 ```
 
 Properties including environment variables:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.4.0:generate -Ddescriptor.includeProperties=true -Ddescriptor.includeEnvironmentVariables=true
+mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.includeProperties=true -Ddescriptor.includeEnvironmentVariables=true
 ```
 
 Plugins with configuration and update checks:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.4.0:generate -Ddescriptor.includePlugins=true -Ddescriptor.includePluginConfiguration=true -Ddescriptor.checkPluginUpdates=true -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.includePlugins=true -Ddescriptor.includePluginConfiguration=true -Ddescriptor.checkPluginUpdates=true -Ddescriptor.generateHtml=true
 ```
 
 Combine everything:
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.4.0:generate \
+mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate \
   -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true \
   -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeFormat=both \
   -Ddescriptor.includeLicenses=true -Ddescriptor.licenseWarnings=true \
@@ -363,6 +363,7 @@ Basics:
 | format | descriptor.format | none | Archive: zip, tar.gz, tar.bz2, jar |
 | classifier | descriptor.classifier | descriptor | Attached classifier |
 | attach | descriptor.attach | false | Attach artifact to project |
+| includeAllReports | descriptor.includeAllReports | false | Include all reports in archive |
 | exportFormat | descriptor.exportFormat | json | json, yaml, both |
 | validate | descriptor.validate | false | Validate descriptor |
 | sign | descriptor.sign | false | Generate SHA-256 signature |
@@ -373,6 +374,75 @@ Basics:
 | summary | descriptor.summary | false | Console dashboard (dry-run) |
 | generateHtml | descriptor.generateHtml | false | Generate HTML report |
 | postGenerationHook | descriptor.postGenerationHook | — | Execute local command/script |
+
+---
+
+### 📦 Archive Generation
+
+The plugin can create archives (ZIP, TAR.GZ, TAR.BZ2) containing all generated reports.
+
+#### Basic Archive (Descriptor Only)
+
+By default, archives contain only the descriptor files:
+
+```bash
+mvn deploy-manifest:generate \
+  -Ddescriptor.exportFormat=both \
+  -Ddescriptor.generateHtml=true \
+  -Ddescriptor.format=zip
+```
+
+**Archive contents** (3 files):
+- ✅ `descriptor.json`
+- ✅ `descriptor.yaml`
+- ✅ `descriptor.html`
+
+#### Complete Archive (All Reports)
+
+Use `includeAllReports=true` to include **all generated reports** in the archive:
+
+```bash
+# 1. Generate all reports
+mvn deploy-manifest:analyze-dependencies -Ddeployment.generateHtml=true
+mvn deploy-manifest:dependency-report -Ddependency.report.formats=json,html
+
+# 2. Create complete archive
+mvn deploy-manifest:generate \
+  -Ddescriptor.exportFormat=both \
+  -Ddescriptor.generateHtml=true \
+  -Ddescriptor.format=zip \
+  -Ddescriptor.includeAllReports=true
+```
+
+**Archive contents** (7 files):
+- ✅ `descriptor.json`, `descriptor.yaml`, `descriptor.html`
+- ✅ `dependency-report.json`, `dependency-report.html`
+- ✅ `dependency-analysis.json`, `dependency-analysis.html`
+
+#### Supported Archive Formats
+
+| Format | Extension | Compression | Use Case |
+|--------|-----------|-------------|----------|
+| `zip` | `.zip` | DEFLATE | Universal, Windows-friendly |
+| `tar.gz` / `tgz` | `.tar.gz` | GZIP | Linux/Unix standard |
+| `tar.bz2` / `tbz2` | `.tar.bz2` | BZIP2 | Better compression |
+| `jar` | `.zip` | DEFLATE | Java ecosystem |
+
+#### Deploy Archive to Maven Repository
+
+```bash
+mvn deploy-manifest:generate \
+  -Ddescriptor.format=zip \
+  -Ddescriptor.includeAllReports=true \
+  -Ddescriptor.attach=true \
+  -Ddescriptor.classifier=docs
+
+mvn deploy
+```
+
+**Result**: Archive deployed as `myapp-1.0.0-docs.zip` to Maven repository
+
+---
 
 Dependency Tree:
 
@@ -423,7 +493,7 @@ Plugins:
 GitHub Actions (excerpt):
 ```yaml
 - name: Generate Deploy Manifest
-  run: mvn -B io.github.tourem:deploy-manifest-plugin:2.4.0:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
+  run: mvn -B io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
 - name: Upload artifacts
   uses: actions/upload-artifact@v4
   with:
