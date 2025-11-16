@@ -95,11 +95,21 @@ mvn io.github.tourem:deploy-manifest-plugin:2.6.0:generate -Ddescriptor.generate
 
 ## See It In Action
 
+### Descriptor HTML Dashboard
 - JSON: see the "Example JSON output" section below
 - HTML report includes: interactive dashboard, Dependencies tab per module with collapsible tree (highlight + Prev/Next, quick filters, scope badges), environment configs, CSV export
 - Screenshots:
-  - ![Descriptor HTML – Overview](images/html1.jpg)
-  - ![Descriptor HTML – Modules](images/html2.jpg)
+  - ![Descriptor HTML – Overview](images/html1.png)
+  - ![Descriptor HTML – Dependencies](images/html2.png)
+
+### Dependency Analysis HTML Dashboard (NEW v2.6.0)
+- Smart dependency analysis with unused/undeclared detection and false positive filtering
+- Repository health checking with GitHub metrics (contributors, stars, last release date)
+- Available versions display (3 newer versions + latest) for easy upgrade planning
+- Maven plugins analysis with outdated detection
+- Screenshots:
+  - ![Dependency Analysis – Overview & Health Score](images/html3.png)
+  - ![Dependency Analysis – Repository Health & Available Versions](images/html4.png)
 
 ---
 
