@@ -135,10 +135,42 @@ public class AnalyzeDependenciesMojo extends AbstractMojo {
                     .undeclared(undeclared)
                     .build();
 
+            // Calculate dependency counts
+            int directCount = safeCount(project.getDependencies());
+
+            // Count all resolved dependencies (direct + transitive) using dependency graph
+            int totalCount = 0;
+            try {
+                DefaultProjectBuildingRequest buildingRequest = new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
+                buildingRequest.setProject(project);
+                DependencyNode rootNode = dependencyGraphBuilder.buildDependencyGraph(buildingRequest, null);
+
+                // Count all nodes in the tree (excluding root)
+                Set<String> uniqueDeps = new java.util.HashSet<>();
+                countDependencies(rootNode, uniqueDeps);
+                totalCount = uniqueDeps.size();
+            } catch (Exception e) {
+                getLog().debug("Failed to build dependency graph for counting: " + e.getMessage());
+                // Fallback: count from analysis result (only direct dependencies)
+                Set<Artifact> allResolvedArtifacts = new java.util.HashSet<>();
+                if (result.getUsedDeclaredArtifacts() != null) {
+                    allResolvedArtifacts.addAll(result.getUsedDeclaredArtifacts());
+                }
+                if (result.getUnusedDeclaredArtifacts() != null) {
+                    allResolvedArtifacts.addAll(result.getUnusedDeclaredArtifacts());
+                }
+                if (result.getUsedUndeclaredArtifacts() != null) {
+                    allResolvedArtifacts.addAll(result.getUsedUndeclaredArtifacts());
+                }
+                totalCount = allResolvedArtifacts.size();
+            }
+
+            int transitiveCount = Math.max(0, totalCount - directCount);
+
             DependencyAnalysisResult.Summary summary = DependencyAnalysisResult.Summary.builder()
-                    .totalDependencies(safeCount(project.getArtifacts()))
-                    .directDependencies(safeCount(project.getDependencies()))
-                    .transitiveDependencies(Math.max(0, safeCount(project.getArtifacts()) - safeCount(project.getDependencies())))
+                    .totalDependencies(totalCount)
+                    .directDependencies(directCount)
+                    .transitiveDependencies(transitiveCount)
                     .issues(DependencyAnalysisResult.Issues.builder()
                             .unused(unused.size())
                             .undeclared(undeclared.size())
@@ -215,6 +247,25 @@ public class AnalyzeDependenciesMojo extends AbstractMojo {
 
     private int safeCount(Collection<?> c) {
         return c == null ? 0 : c.size();
+    }
+
+    private void countDependencies(DependencyNode node, Set<String> uniqueDeps) {
+        if (node == null) return;
+
+        // Add current node (skip root which is the project itself)
+        if (node.getArtifact() != null && node.getParent() != null) {
+            String key = node.getArtifact().getGroupId() + ":" +
+                        node.getArtifact().getArtifactId() + ":" +
+                        node.getArtifact().getVersion();
+            uniqueDeps.add(key);
+        }
+
+        // Recursively count children
+        if (node.getChildren() != null) {
+            for (DependencyNode child : node.getChildren()) {
+                countDependencies(child, uniqueDeps);
+            }
+        }
     }
 
     private List<AnalyzedDependency> mapArtifacts(Set<Artifact> artifacts) {
