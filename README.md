@@ -118,15 +118,14 @@ Watch the plugin in action with complete walkthroughs:
 
 **🇫🇷 Version Française:**
 
-<video src="https://github.com/tourem/deploy-manifest-plugin/raw/main/videos/Maven_Deploy_Manifest_Plugin_fr.mp4" controls="controls" style="max-width: 100%;">
-  Your browser does not support the video tag.
-</video>
+[📹 Voir la vidéo de démonstration en français](videos/Maven_Deploy_Manifest_Plugin_fr.mp4)
 
 **🇬🇧 English Version:**
 
-<video src="https://github.com/tourem/deploy-manifest-plugin/raw/main/videos/Maven_Deploy_Manifest_Plugin_eng.mp4" controls="controls" style="max-width: 100%;">
-  Your browser does not support the video tag.
-</video>
+[📹 Watch the English demonstration video](videos/Maven_Deploy_Manifest_Plugin_eng.mp4)
+
+> **Note:** Click the links above to download and watch the full demonstration videos.
+> Videos are stored with Git LFS (30-33 MB each).
 
 ---
 
