@@ -59,7 +59,8 @@ class DependencyTreeFeatureIT {
     }
 
     @Test
-    void shouldNotCollectForNonExecutableModule_evenWhenEnabled() throws Exception {
+    void shouldCollectForNonExecutableModule_whenEnabled() throws Exception {
+        // Since v2.6.0, dependency tree is collected for ALL deployable modules (not just executables)
         Path projectDir = tempDir.resolve("plain-jar");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("pom.xml"), plainJarPomWithDeps());
@@ -74,7 +75,12 @@ class DependencyTreeFeatureIT {
         ProjectDescriptor descriptor = analyzer.analyzeProject(projectDir);
 
         assertThat(descriptor.deployableModules()).hasSize(1);
-        assertThat(descriptor.deployableModules().get(0).getDependencies()).isNull();
+        // v2.6.0: Dependencies are now collected for all deployable modules
+        var deps = descriptor.deployableModules().get(0).getDependencies();
+        assertThat(deps).isNotNull();
+        assertThat(deps.getFlat()).isNotNull();
+        assertThat(deps.getFlat()).hasSize(1);
+        assertThat(deps.getFlat().get(0).getArtifactId()).isEqualTo("snakeyaml");
     }
 
     private static String bootPomWithDeps() {

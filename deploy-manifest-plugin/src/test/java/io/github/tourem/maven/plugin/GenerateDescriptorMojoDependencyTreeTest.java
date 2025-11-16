@@ -368,7 +368,8 @@ public class GenerateDescriptorMojoDependencyTreeTest {
     }
 
     @Test
-    void shouldNotCollectDependencies_forNonExecutableModule() throws Exception {
+    void shouldCollectDependencies_forNonExecutableModule() throws Exception {
+        // Since v2.6.0, dependency tree is collected for ALL deployable modules (not just executables)
         Path projectDir = tempDir.resolve("plain-jar-plugin");
         Files.createDirectories(projectDir);
         String pom = """
@@ -417,7 +418,12 @@ public class GenerateDescriptorMojoDependencyTreeTest {
         Path jsonPath = projectDir.resolve("target/descriptor.json");
         JsonNode deps = new ObjectMapper().readTree(Files.readString(jsonPath))
                 .path("deployableModules").get(0).path("dependencies");
-        assertThat(deps.isMissingNode() || deps.isNull()).isTrue();
+        // v2.6.0: Dependencies are now collected for all deployable modules
+        assertThat(deps.isMissingNode()).isFalse();
+        assertThat(deps.isNull()).isFalse();
+        assertThat(deps.path("flat").isArray()).isTrue();
+        assertThat(deps.path("flat").size()).isEqualTo(1);
+        assertThat(deps.path("flat").get(0).path("artifactId").asText()).isEqualTo("snakeyaml");
     }
 
 

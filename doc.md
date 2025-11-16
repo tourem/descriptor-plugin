@@ -36,7 +36,7 @@ Ce guide explique comment installer, exécuter et tirer le meilleur parti de `io
 Exécution sans modifier le POM :
 
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.6.0:generate -Ddescriptor.generateHtml=true
 ```
 
 Ajout dans le POM pour des builds reproductibles :
@@ -162,14 +162,14 @@ Une couche d'intelligence au-dessus de Maven Dependency Plugin qui transforme le
 **Exemple d'utilisation** :
 ```bash
 # Analyse simple
-mvn io.github.tourem:deploy-manifest-plugin:2.5.0:analyze-dependencies
+mvn io.github.tourem:deploy-manifest-plugin:2.6.0:analyze-dependencies
 
 # Résultats générés
 # - target/dependency-analysis.json (rapport complet)
 # - target/dependency-analysis.html (dashboard interactif)
 
 # Rapport complet avec dépendances et plugins
-mvn io.github.tourem:deploy-manifest-plugin:2.5.0:dependency-report
+mvn io.github.tourem:deploy-manifest-plugin:2.6.0:dependency-report
 
 # Résultats générés
 # - target/dependency-report.json (rapport consolidé)
@@ -244,13 +244,33 @@ mvn io.github.tourem:deploy-manifest-plugin:2.5.0:dependency-report
 - 📊 Cartes de résumé (Total, Unused, Conflicts, Savings)
 - 📋 Table des dépendances inutilisées avec badges (UNUSED / FALSE POSITIVE)
 - 💡 Liste des recommandations avec patches POM
-- 🎨 Thème sombre, responsive, professionnel
+- 🏥 **Statut de santé des dépendances** (NOUVEAU v2.6.0) :
+  - Badges de santé : HEALTHY (vert), WARNING (jaune), DANGER (rouge), UNKNOWN (gris)
+  - Critères d'évaluation :
+    - Date de dernière release : WARNING si >2 ans, DANGER si >3 ans
+    - Nombre de contributeurs : WARNING si <3, DANGER si <2
+    - Dépôt archivé : DANGER automatique
+    - Mise à jour récente (<180 jours) : indicateur positif
+  - Métriques du dépôt GitHub : contributeurs, stars, forks, issues ouvertes
+  - URL du dépôt, type (GitHub/GitLab/etc.), licence
+  - Listes des préoccupations et points positifs par dépendance
+- 📦 **Versions disponibles** (NOUVEAU v2.6.0) :
+  - Affichage de 3 versions plus récentes disponibles
+  - Version la plus récente mise en évidence
+  - Colonnes dédiées : Version actuelle, Versions disponibles, Dernière version
+  - Aide à identifier rapidement les dépendances obsolètes
+- 🔌 **Analyse des plugins Maven** (NOUVEAU v2.6.0) :
+  - Liste complète des plugins de build avec versions
+  - Détection des plugins obsolètes
+  - Lookup des versions disponibles pour les plugins
+  - Section Plugin Management avec indicateur "Utilisé dans le Build"
+- 🎨 Thème sombre/clair avec toggle, responsive, professionnel
 
 **Intégration CI/CD** :
 ```yaml
 # GitHub Actions
 - name: Analyze Dependencies
-  run: mvn io.github.tourem:deploy-manifest-plugin:2.5.0:analyze-dependencies
+  run: mvn io.github.tourem:deploy-manifest-plugin:2.6.0:analyze-dependencies
 
 - name: Check Health Score
   run: |
@@ -282,37 +302,37 @@ mvn io.github.tourem:deploy-manifest-plugin:2.5.0:dependency-report
 
 JSON minimal :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate
+mvn io.github.tourem:deploy-manifest-plugin:2.6.0:generate
 ```
 
 JSON + YAML + HTML :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.6.0:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
 ```
 
 Arbre des dependances (Tree+Flat) avec scopes compile+runtime :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeFormat=both -Ddescriptor.dependencyScopes=compile,runtime
+mvn io.github.tourem:deploy-manifest-plugin:2.6.0:generate -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeFormat=both -Ddescriptor.dependencyScopes=compile,runtime
 ```
 
 Licences avec avertissements et liste incompatible personnalisee :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.licenseWarnings=true -Ddescriptor.incompatibleLicenses=GPL-3.0,AGPL-3.0,SSPL
+mvn io.github.tourem:deploy-manifest-plugin:2.6.0:generate -Ddescriptor.licenseWarnings=true -Ddescriptor.incompatibleLicenses=GPL-3.0,AGPL-3.0,SSPL
 ```
 
 Proprietes incluant les variables d’environnement :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.includeProperties=true -Ddescriptor.includeEnvironmentVariables=true
+mvn io.github.tourem:deploy-manifest-plugin:2.6.0:generate -Ddescriptor.includeProperties=true -Ddescriptor.includeEnvironmentVariables=true
 ```
 
 Plugins avec configuration et verification des mises a jour :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.includePlugins=true -Ddescriptor.includePluginConfiguration=true -Ddescriptor.checkPluginUpdates=true -Ddescriptor.generateHtml=true
+mvn io.github.tourem:deploy-manifest-plugin:2.6.0:generate -Ddescriptor.includePlugins=true -Ddescriptor.includePluginConfiguration=true -Ddescriptor.checkPluginUpdates=true -Ddescriptor.generateHtml=true
 ```
 
 Tout combiner :
 ```bash
-mvn io.github.tourem:deploy-manifest-plugin:2.5.0:generate \
+mvn io.github.tourem:deploy-manifest-plugin:2.6.0:generate \
   -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true \
   -Ddescriptor.includeDependencyTree=true -Ddescriptor.dependencyTreeFormat=both \
   -Ddescriptor.includeLicenses=true -Ddescriptor.licenseWarnings=true \
@@ -493,7 +513,7 @@ Plugins :
 GitHub Actions (extrait) :
 ```yaml
 - name: Generate Deploy Manifest
-  run: mvn -B io.github.tourem:deploy-manifest-plugin:2.5.0:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
+  run: mvn -B io.github.tourem:deploy-manifest-plugin:2.6.0:generate -Ddescriptor.exportFormat=both -Ddescriptor.generateHtml=true
 - name: Upload artifacts
   uses: actions/upload-artifact@v4
   with:

@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import io.github.tourem.maven.descriptor.model.analysis.AnalyzedDependency;
 import io.github.tourem.maven.descriptor.model.analysis.DependencyAnalysisResult;
+import io.github.tourem.maven.descriptor.model.analysis.RepositoryHealth;
 import io.github.tourem.maven.descriptor.service.DependencyVersionLookup;
+import io.github.tourem.maven.descriptor.service.RepositoryHealthChecker;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -89,6 +91,37 @@ public class AnalyzeDependenciesMojo extends AbstractMojo {
     @Parameter(property = "descriptor.versionLookupTimeoutMs", defaultValue = "5000")
     private int versionLookupTimeoutMs;
 
+    // Repository health check
+    @Parameter(property = "descriptor.checkRepositoryHealth", defaultValue = "true")
+    private boolean checkRepositoryHealth;
+
+    @Parameter(property = "descriptor.repositoryHealthTimeoutMs", defaultValue = "5000")
+    private int repositoryHealthTimeoutMs;
+
+    @Parameter(property = "descriptor.githubToken")
+    private String githubToken;
+
+    // Plugin analysis
+    @Parameter(property = "descriptor.includePlugins", defaultValue = "true")
+    private boolean includePlugins;
+
+    // Dependency tree
+    @Parameter(property = "descriptor.includeDependencyTree", defaultValue = "false")
+    private boolean includeDependencyTree;
+
+    @Parameter(property = "descriptor.dependencyTreeFormat", defaultValue = "tree")
+    private String dependencyTreeFormat;
+
+    @Parameter(property = "descriptor.dependencyTreeDepth", defaultValue = "-1")
+    private int dependencyTreeDepth;
+
+    @Parameter(property = "descriptor.dependencyTreeScope")
+    private String dependencyTreeScope;
+
+    // Export format
+    @Parameter(property = "descriptor.exportFormat", defaultValue = "json")
+    private String exportFormat;
+
     @Override
     public void execute() throws MojoExecutionException {
         try {
@@ -102,10 +135,42 @@ public class AnalyzeDependenciesMojo extends AbstractMojo {
                     .undeclared(undeclared)
                     .build();
 
+            // Calculate dependency counts
+            int directCount = safeCount(project.getDependencies());
+
+            // Count all resolved dependencies (direct + transitive) using dependency graph
+            int totalCount = 0;
+            try {
+                DefaultProjectBuildingRequest buildingRequest = new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
+                buildingRequest.setProject(project);
+                DependencyNode rootNode = dependencyGraphBuilder.buildDependencyGraph(buildingRequest, null);
+
+                // Count all nodes in the tree (excluding root)
+                Set<String> uniqueDeps = new java.util.HashSet<>();
+                countDependencies(rootNode, uniqueDeps);
+                totalCount = uniqueDeps.size();
+            } catch (Exception e) {
+                getLog().debug("Failed to build dependency graph for counting: " + e.getMessage());
+                // Fallback: count from analysis result (only direct dependencies)
+                Set<Artifact> allResolvedArtifacts = new java.util.HashSet<>();
+                if (result.getUsedDeclaredArtifacts() != null) {
+                    allResolvedArtifacts.addAll(result.getUsedDeclaredArtifacts());
+                }
+                if (result.getUnusedDeclaredArtifacts() != null) {
+                    allResolvedArtifacts.addAll(result.getUnusedDeclaredArtifacts());
+                }
+                if (result.getUsedUndeclaredArtifacts() != null) {
+                    allResolvedArtifacts.addAll(result.getUsedUndeclaredArtifacts());
+                }
+                totalCount = allResolvedArtifacts.size();
+            }
+
+            int transitiveCount = Math.max(0, totalCount - directCount);
+
             DependencyAnalysisResult.Summary summary = DependencyAnalysisResult.Summary.builder()
-                    .totalDependencies(safeCount(project.getArtifacts()))
-                    .directDependencies(safeCount(project.getDependencies()))
-                    .transitiveDependencies(Math.max(0, safeCount(project.getArtifacts()) - safeCount(project.getDependencies())))
+                    .totalDependencies(totalCount)
+                    .directDependencies(directCount)
+                    .transitiveDependencies(transitiveCount)
                     .issues(DependencyAnalysisResult.Issues.builder()
                             .unused(unused.size())
                             .undeclared(undeclared.size())
@@ -129,6 +194,10 @@ public class AnalyzeDependenciesMojo extends AbstractMojo {
                 enrichWithAvailableVersions(unused);
                 enrichWithAvailableVersions(undeclared);
             }
+            if (checkRepositoryHealth) {
+                enrichWithRepositoryHealth(unused);
+                enrichWithRepositoryHealth(undeclared);
+            }
             List<io.github.tourem.maven.descriptor.model.analysis.Recommendation> recs = null;
             if (generateRecommendations) {
                 recs = generateRecommendations(unused);
@@ -145,13 +214,27 @@ public class AnalyzeDependenciesMojo extends AbstractMojo {
                 builder.multiModule(mma);
             }
 
+            // Collect plugin information
+            if (includePlugins) {
+                io.github.tourem.maven.descriptor.model.PluginInfo pluginInfo = collectPlugins();
+                builder.plugins(pluginInfo);
+            }
+
+            // Collect dependency tree
+            if (includeDependencyTree) {
+                io.github.tourem.maven.descriptor.model.DependencyTreeInfo treeInfo = collectDependencyTree();
+                builder.dependencyTree(treeInfo);
+            }
+
             // Phase 3: Health score
             io.github.tourem.maven.descriptor.model.analysis.HealthScore health = calculateHealthScore(unused, undeclared, conflicts);
             builder.healthScore(health);
 
             DependencyAnalysisResult out = builder.build();
 
-            writeJson(out);
+            // Write outputs based on exportFormat
+            writeOutputs(out);
+
             if (generateHtml) {
                 writeHtml(out);
                 getLog().info("Dependency analysis HTML generated: " + getHtmlOutputPath());
@@ -164,6 +247,25 @@ public class AnalyzeDependenciesMojo extends AbstractMojo {
 
     private int safeCount(Collection<?> c) {
         return c == null ? 0 : c.size();
+    }
+
+    private void countDependencies(DependencyNode node, Set<String> uniqueDeps) {
+        if (node == null) return;
+
+        // Add current node (skip root which is the project itself)
+        if (node.getArtifact() != null && node.getParent() != null) {
+            String key = node.getArtifact().getGroupId() + ":" +
+                        node.getArtifact().getArtifactId() + ":" +
+                        node.getArtifact().getVersion();
+            uniqueDeps.add(key);
+        }
+
+        // Recursively count children
+        if (node.getChildren() != null) {
+            for (DependencyNode child : node.getChildren()) {
+                countDependencies(child, uniqueDeps);
+            }
+        }
     }
 
     private List<AnalyzedDependency> mapArtifacts(Set<Artifact> artifacts) {
@@ -353,6 +455,69 @@ public class AnalyzeDependenciesMojo extends AbstractMojo {
             }
         } catch (Exception e) {
             getLog().warn("Failed to initialize version lookup: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Enrich dependencies with repository health information.
+     * Checks Maven Central metadata and GitHub repository status.
+     */
+    private void enrichWithRepositoryHealth(List<AnalyzedDependency> dependencies) {
+        if (dependencies == null || dependencies.isEmpty()) {
+            return;
+        }
+
+        try {
+            // Create repository health checker
+            RepositoryHealthChecker healthChecker = new RepositoryHealthChecker(
+                    repositoryHealthTimeoutMs,
+                    githubToken
+            );
+
+            int healthyCount = 0;
+            int warningCount = 0;
+            int dangerCount = 0;
+
+            for (AnalyzedDependency dep : dependencies) {
+                try {
+                    RepositoryHealth health = healthChecker.checkHealth(
+                            dep.getGroupId(),
+                            dep.getArtifactId(),
+                            dep.getVersion()
+                    );
+
+                    if (health != null) {
+                        dep.setRepositoryHealth(health);
+
+                        // Log warnings and dangers
+                        if (health.getLevel() == RepositoryHealth.HealthLevel.DANGER) {
+                            dangerCount++;
+                            getLog().warn(String.format("⚠️  DANGER: %s:%s - %s",
+                                    dep.getGroupId(),
+                                    dep.getArtifactId(),
+                                    health.getConcerns() != null ? String.join(", ", health.getConcerns()) : "Unknown issues"));
+                        } else if (health.getLevel() == RepositoryHealth.HealthLevel.WARNING) {
+                            warningCount++;
+                            getLog().warn(String.format("⚠️  WARNING: %s:%s - %s",
+                                    dep.getGroupId(),
+                                    dep.getArtifactId(),
+                                    health.getConcerns() != null ? String.join(", ", health.getConcerns()) : "Some concerns"));
+                        } else if (health.getLevel() == RepositoryHealth.HealthLevel.HEALTHY) {
+                            healthyCount++;
+                        }
+                    }
+                } catch (Exception e) {
+                    getLog().debug("Failed to check repository health for " + dep.getGroupId() + ":" +
+                                   dep.getArtifactId() + ": " + e.getMessage());
+                }
+            }
+
+            if (dangerCount > 0 || warningCount > 0) {
+                getLog().info(String.format("Repository Health Summary: %d healthy, %d warnings, %d dangers",
+                        healthyCount, warningCount, dangerCount));
+            }
+        } catch (Exception e) {
+            getLog().warn("Failed to initialize repository health checker: " + e.getMessage());
         }
     }
 
@@ -683,7 +848,7 @@ public class AnalyzeDependenciesMojo extends AbstractMojo {
                 : (analysisOutputFile == null || analysisOutputFile.isBlank() ? "dependency-analysis.html" : analysisOutputFile + ".html");
         File file = new File(dir, htmlName);
 
-        StringBuilder sb = new StringBuilder(8192);
+        StringBuilder sb = new StringBuilder(16384);
         int total = out.getSummary() != null && out.getSummary().getTotalDependencies() != null ? out.getSummary().getTotalDependencies() : 0;
         int unused = out.getRawResults() != null && out.getRawResults().getUnused() != null ? out.getRawResults().getUnused().size() : 0;
         int undeclared = out.getRawResults() != null && out.getRawResults().getUndeclared() != null ? out.getRawResults().getUndeclared().size() : 0;
@@ -691,74 +856,393 @@ public class AnalyzeDependenciesMojo extends AbstractMojo {
         int score = out.getHealthScore() != null && out.getHealthScore().getOverall() != null ? out.getHealthScore().getOverall() : 0;
         String grade = out.getHealthScore() != null ? out.getHealthScore().getGrade() : "";
 
-        sb.append("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>");
-        sb.append("<title>Dependency Analysis</title><style>");
-        sb.append("body{font-family:Segoe UI,Tahoma,Arial,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:24px;}\n");
-        sb.append(".container{max-width:1200px;margin:0 auto;}\n.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}\n");
-        sb.append(".score{font-size:48px;font-weight:800;} .grade{font-size:16px;opacity:.85;margin-left:8px;}\n");
-        sb.append(".cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0;}\n");
-        sb.append(".card{background:#111827;padding:16px;border-radius:12px;border:1px solid #374151;} .card .v{font-size:28px;font-weight:700;} .muted{color:#94a3b8;font-size:12px;}\n");
-        sb.append("table{width:100%;border-collapse:collapse;margin-top:12px;} th,td{padding:10px;border-bottom:1px solid #334155;} th{background:#1f2937;text-align:left;} tr:hover{background:#0b1220;}\n");
-        sb.append(".badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;} .warn{background:#f59e0b1a;color:#f59e0b;} .ok{background:#10b9811a;color:#10b981;} .riskH{background:#ef44441a;color:#ef4444;} .riskM{background:#f59e0b1a;color:#f59e0b;}\n");
-        sb.append("</style></head><body><div class='container'>");
+        // HTML Header with modern design matching descriptor
+        sb.append("<!DOCTYPE html>\n<html lang='en'>\n<head>\n");
+        sb.append("<meta charset='UTF-8'>\n<meta name='viewport' content='width=device-width, initial-scale=1.0'>\n");
+        sb.append("<title>").append(project.getName()).append(" - Dependency Analysis</title>\n");
+        sb.append("<style>\n");
 
-        sb.append("<div class='header'><div><div class='muted'>Dependency Health Score</div><div class='score'>").append(score).append("<span class='grade'>").append(grade).append("</span></div></div>");
-        sb.append("<div class='muted'>Generated: ").append(java.time.Instant.now().toString()).append("</div></div>");
+        // Base styles
+        sb.append("* { margin: 0; padding: 0; box-sizing: border-box; }\n");
+        sb.append("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }\n");
+        sb.append(".container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }\n");
 
-        sb.append("<div class='cards'>");
-        sb.append("<div class='card'><div class='muted'>Total Dependencies</div><div class='v'>").append(total).append("</div></div>");
-        sb.append("<div class='card'><div class='muted'>Unused</div><div class='v'>").append(unused).append("</div></div>");
-        sb.append("<div class='card'><div class='muted'>Undeclared</div><div class='v'>").append(undeclared).append("</div></div>");
-        sb.append("<div class='card'><div class='muted'>Version Conflicts</div><div class='v'>").append(conflicts).append("</div></div>");
-        sb.append("</div>");
+        // Header with gradient and animation
+        sb.append(".header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; display: flex; justify-content: space-between; align-items: center; position: relative; overflow: hidden; }\n");
+        sb.append(".header::before { content: ''; position: absolute; top: -50%; right: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: pulse 15s ease-in-out infinite; }\n");
+        sb.append("@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }\n");
+        sb.append(".header h1 { font-size: 2.5em; margin-bottom: 10px; position: relative; z-index: 1; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }\n");
+        sb.append(".header .subtitle { font-size: 1.1em; opacity: 0.9; position: relative; z-index: 1; }\n");
+        sb.append(".header .timestamp { margin-top: 15px; font-size: 0.9em; opacity: 0.8; position: relative; z-index: 1; }\n");
+
+        // Theme toggle button
+        sb.append(".theme-toggle { background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.3); color: white; padding: 12px 16px; border-radius: 50%; cursor: pointer; font-size: 1.5em; transition: all 0.3s; position: relative; z-index: 1; }\n");
+        sb.append(".theme-toggle:hover { background: rgba(255,255,255,0.3); transform: rotate(20deg) scale(1.1); }\n");
+
+        // Score display
+        sb.append(".score-display { position: relative; z-index: 1; }\n");
+        sb.append(".score-label { font-size: 0.9em; opacity: 0.8; margin-bottom: 5px; }\n");
+        sb.append(".score { font-size: 3.5em; font-weight: 800; line-height: 1; }\n");
+        sb.append(".grade { font-size: 1.2em; opacity: 0.85; margin-left: 8px; }\n");
+
+        // Content area
+        sb.append(".content { padding: 40px; }\n");
+        sb.append("h2, h3 { color: #333; margin: 30px 0 15px 0; }\n");
+
+        // Cards
+        sb.append(".cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 20px 0; }\n");
+        sb.append(".card { background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #e0e0e0; transition: transform 0.2s, box-shadow 0.2s; }\n");
+        sb.append(".card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }\n");
+        sb.append(".card .label { color: #666; font-size: 0.85em; margin-bottom: 8px; }\n");
+        sb.append(".card .value { font-size: 2em; font-weight: 700; color: #333; }\n");
+
+        // Tables
+        sb.append("table { width: 100%; border-collapse: collapse; margin-top: 16px; background: white; border-radius: 8px; overflow: hidden; }\n");
+        sb.append("th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e0e0e0; }\n");
+        sb.append("th { background: #f8f9fa; font-weight: 600; color: #333; }\n");
+        sb.append("tr:hover { background: #f8f9fa; }\n");
+
+        // Badges
+        sb.append(".badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: 600; }\n");
+        sb.append(".badge.ok { background: #d4edda; color: #155724; }\n");
+        sb.append(".badge.warn { background: #fff3cd; color: #856404; }\n");
+        sb.append(".badge.error { background: #f8d7da; color: #721c24; }\n");
+        sb.append(".badge.riskH { background: #f8d7da; color: #721c24; }\n");
+        sb.append(".badge.riskM { background: #fff3cd; color: #856404; }\n");
+
+        // Dark mode styles
+        sb.append("body.dark-mode { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); }\n");
+        sb.append("body.dark-mode .container { background: #0f3460; }\n");
+        sb.append("body.dark-mode .header { background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); }\n");
+        sb.append("body.dark-mode .content { color: #e0e0e0; }\n");
+        sb.append("body.dark-mode h2, body.dark-mode h3 { color: #e0e0e0; }\n");
+        sb.append("body.dark-mode .card { background: #1a1a2e; border-color: #2a2a3e; }\n");
+        sb.append("body.dark-mode .card .label { color: #a0a0a0; }\n");
+        sb.append("body.dark-mode .card .value { color: #e0e0e0; }\n");
+        sb.append("body.dark-mode table { background: #1a1a2e; }\n");
+        sb.append("body.dark-mode th { background: #16213e; color: #e0e0e0; }\n");
+        sb.append("body.dark-mode td { color: #e0e0e0; border-bottom-color: #2a2a3e; }\n");
+        sb.append("body.dark-mode tr:hover { background: #16213e; }\n");
+
+        sb.append("</style>\n</head>\n<body>\n");
+        sb.append("<div class='container'>\n");
+
+        // Header
+        sb.append("<div class='header'>\n");
+        sb.append("<div class='score-display'>\n");
+        sb.append("<div class='score-label'>Dependency Health Score</div>\n");
+        sb.append("<div class='score'>").append(score).append("<span class='grade'>").append(grade).append("</span></div>\n");
+        sb.append("</div>\n");
+        sb.append("<div>\n");
+        sb.append("<h1>").append(escapeHtml(project.getName())).append("</h1>\n");
+        sb.append("<div class='subtitle'>Dependency Analysis Report</div>\n");
+        sb.append("<div class='timestamp'>📅 Generated: ").append(java.time.Instant.now().toString()).append("</div>\n");
+        sb.append("</div>\n");
+        sb.append("<button class='theme-toggle' onclick='toggleTheme()' title='Toggle Dark/Light Mode'>\n");
+        sb.append("<span class='theme-icon'>🌙</span>\n");
+        sb.append("</button>\n");
+        sb.append("</div>\n");
+
+        sb.append("<div class='content'>\n");
+
+        // Summary cards
+        sb.append("<h2>📊 Summary</h2>\n");
+        sb.append("<div class='cards'>\n");
+        sb.append("<div class='card'><div class='label'>Total Dependencies</div><div class='value'>").append(total).append("</div></div>\n");
+        sb.append("<div class='card'><div class='label'>Unused</div><div class='value'>").append(unused).append("</div></div>\n");
+        sb.append("<div class='card'><div class='label'>Undeclared</div><div class='value'>").append(undeclared).append("</div></div>\n");
+        sb.append("<div class='card'><div class='label'>Version Conflicts</div><div class='value'>").append(conflicts).append("</div></div>\n");
+        sb.append("</div>\n");
+
+        // Health Score Breakdown
+        if (out.getHealthScore() != null && out.getHealthScore().getBreakdown() != null) {
+            sb.append("<h2>🏥 Health Score Breakdown</h2>\n");
+            sb.append("<div class='cards'>\n");
+            var breakdown = out.getHealthScore().getBreakdown();
+            if (breakdown.getCleanliness() != null) {
+                sb.append("<div class='card'><div class='label'>Cleanliness (40%)</div><div class='value'>")
+                  .append(breakdown.getCleanliness().getScore()).append("/100</div>\n")
+                  .append("<div class='label' style='margin-top:8px;font-size:0.8em;'>").append(escapeHtml(breakdown.getCleanliness().getDetails())).append("</div></div>\n");
+            }
+            if (breakdown.getSecurity() != null) {
+                sb.append("<div class='card'><div class='label'>Security (30%)</div><div class='value'>")
+                  .append(breakdown.getSecurity().getScore()).append("/100</div>\n")
+                  .append("<div class='label' style='margin-top:8px;font-size:0.8em;'>").append(escapeHtml(breakdown.getSecurity().getDetails())).append("</div></div>\n");
+            }
+            if (breakdown.getMaintainability() != null) {
+                sb.append("<div class='card'><div class='label'>Maintainability (20%)</div><div class='value'>")
+                  .append(breakdown.getMaintainability().getScore()).append("/100</div>\n")
+                  .append("<div class='label' style='margin-top:8px;font-size:0.8em;'>").append(escapeHtml(breakdown.getMaintainability().getDetails())).append("</div></div>\n");
+            }
+            if (breakdown.getLicenses() != null) {
+                sb.append("<div class='card'><div class='label'>Licenses (10%)</div><div class='value'>")
+                  .append(breakdown.getLicenses().getScore()).append("/100</div>\n")
+                  .append("<div class='label' style='margin-top:8px;font-size:0.8em;'>").append(escapeHtml(breakdown.getLicenses().getDetails())).append("</div></div>\n");
+            }
+            sb.append("</div>\n");
+        }
+
+        // Actionable Improvements
+        if (out.getHealthScore() != null && out.getHealthScore().getActionableImprovements() != null && !out.getHealthScore().getActionableImprovements().isEmpty()) {
+            sb.append("<h2>💡 Actionable Improvements</h2>\n");
+            sb.append("<table>\n<thead>\n<tr><th>Action</th><th>Score Impact</th><th>Effort</th><th>Priority</th></tr>\n</thead>\n<tbody>\n");
+            for (var improvement : out.getHealthScore().getActionableImprovements()) {
+                String effortBadge = improvement.getEffort().equals("LOW") ? "<span class='badge ok'>LOW</span>" :
+                                    (improvement.getEffort().equals("MEDIUM") ? "<span class='badge warn'>MEDIUM</span>" : "<span class='badge error'>HIGH</span>");
+                sb.append("<tr><td>").append(escapeHtml(improvement.getAction())).append("</td>")
+                  .append("<td>+").append(improvement.getScoreImpact()).append("</td>")
+                  .append("<td>").append(effortBadge).append("</td>")
+                  .append("<td>").append(improvement.getPriority()).append("</td></tr>\n");
+            }
+            sb.append("</tbody>\n</table>\n");
+        }
 
         // Unused table
         if (out.getRawResults() != null && out.getRawResults().getUnused() != null && !out.getRawResults().getUnused().isEmpty()) {
-            sb.append("<h3>Unused Dependencies ("+out.getRawResults().getUnused().size()+")</h3>");
-            sb.append("<table><thead><tr><th>Artifact</th><th>Scope</th><th>Size</th><th>Status</th><th>Added By</th></tr></thead><tbody>");
+            sb.append("<h2>🗑️ Unused Dependencies (").append(out.getRawResults().getUnused().size()).append(")</h2>\n");
+            sb.append("<table>\n<thead>\n<tr><th>Artifact</th><th>Current</th><th>Scope</th><th>Size</th><th>Status</th><th>Repo Health</th><th>Available Versions</th><th>Latest</th><th>Added By</th></tr>\n</thead>\n<tbody>\n");
             for (AnalyzedDependency d : out.getRawResults().getUnused()) {
-                String ga = (d.getGroupId()==null?"":d.getGroupId())+":"+(d.getArtifactId()==null?"":d.getArtifactId());
+                String ga = (d.getGroupId()==null?"":escapeHtml(d.getGroupId()))+":"+(d.getArtifactId()==null?"":escapeHtml(d.getArtifactId()));
+                String currentVersion = d.getVersion()==null?"":escapeHtml(d.getVersion());
                 String size = (d.getMetadata()!=null && d.getMetadata().getSizeKB()!=null)?(String.format("%.0f KB", d.getMetadata().getSizeKB())):"";
                 String status = Boolean.TRUE.equals(d.getSuspectedFalsePositive()) ? "<span class='badge ok'>FALSE POSITIVE</span>" : "<span class='badge warn'>UNUSED</span>";
-                String who = d.getGit()!=null ? (d.getGit().getAuthorEmail()+" ("+d.getGit().getDaysAgo()+"d)") : "";
-                sb.append("<tr><td><strong>").append(ga).append(":").append(d.getVersion()==null?"":d.getVersion()).append("</strong></td>")
-                  .append("<td>").append(d.getScope()==null?"":d.getScope()).append("</td>")
-                  .append("<td>").append(size).append("</td>")
-                  .append("<td>").append(status).append("</td>")
-                  .append("<td>").append(who==null?"":who).append("</td></tr>");
+                String who = d.getGit()!=null ? (escapeHtml(d.getGit().getAuthorEmail())+" ("+d.getGit().getDaysAgo()+"d)") : "";
+
+                // Repository health badge
+                String healthBadge = "";
+                if (d.getRepositoryHealth() != null) {
+                    RepositoryHealth health = d.getRepositoryHealth();
+                    switch (health.getLevel()) {
+                        case HEALTHY:
+                            healthBadge = "<span class='badge ok' title='" +
+                                escapeHtml(health.getPositives() != null ? String.join(", ", health.getPositives()) : "Healthy") +
+                                "'>✓ HEALTHY</span>";
+                            break;
+                        case WARNING:
+                            healthBadge = "<span class='badge warn' title='" +
+                                escapeHtml(health.getConcerns() != null ? String.join(", ", health.getConcerns()) : "Some concerns") +
+                                "'>⚠ WARNING</span>";
+                            break;
+                        case DANGER:
+                            healthBadge = "<span class='badge error' title='" +
+                                escapeHtml(health.getConcerns() != null ? String.join(", ", health.getConcerns()) : "Serious concerns") +
+                                "'>⛔ DANGER</span>";
+                            break;
+                        case UNKNOWN:
+                            healthBadge = "<span class='badge' style='background:#e0e0e0;color:#666;'>? UNKNOWN</span>";
+                            break;
+                    }
+                }
+
+                // Available versions - display as list
+                String availableVersions = "";
+                if (d.getAvailableVersions() != null && !d.getAvailableVersions().isEmpty()) {
+                    StringBuilder versionList = new StringBuilder();
+                    for (int i = 0; i < d.getAvailableVersions().size(); i++) {
+                        if (i > 0) versionList.append("<br>");
+                        versionList.append("<span style='font-size:0.85em;color:#667eea;'>")
+                                  .append(escapeHtml(d.getAvailableVersions().get(i)))
+                                  .append("</span>");
+                    }
+                    availableVersions = versionList.toString();
+                } else {
+                    availableVersions = "<span style='font-size:0.85em;color:#999;'>-</span>";
+                }
+
+                // Latest version from repository health
+                String latestVersion = "";
+                if (d.getRepositoryHealth() != null && d.getRepositoryHealth().getLatestVersion() != null) {
+                    latestVersion = "<span style='font-size:0.9em;font-weight:bold;color:#764ba2;'>📦 " +
+                        escapeHtml(d.getRepositoryHealth().getLatestVersion()) + "</span>";
+                } else {
+                    latestVersion = "<span style='font-size:0.85em;color:#999;'>-</span>";
+                }
+
+                sb.append("<tr>\n<td><strong>").append(ga).append("</strong></td>\n")
+                  .append("<td>").append(currentVersion).append("</td>\n")
+                  .append("<td>").append(d.getScope()==null?"":escapeHtml(d.getScope())).append("</td>\n")
+                  .append("<td>").append(size).append("</td>\n")
+                  .append("<td>").append(status).append("</td>\n")
+                  .append("<td>").append(healthBadge).append("</td>\n")
+                  .append("<td>").append(availableVersions).append("</td>\n")
+                  .append("<td>").append(latestVersion).append("</td>\n")
+                  .append("<td>").append(who==null?"":who).append("</td>\n</tr>\n");
             }
-            sb.append("</tbody></table>");
+            sb.append("</tbody>\n</table>\n");
+        }
+
+        // Undeclared table
+        if (out.getRawResults() != null && out.getRawResults().getUndeclared() != null && !out.getRawResults().getUndeclared().isEmpty()) {
+            sb.append("<h2>📦 Undeclared Dependencies (").append(out.getRawResults().getUndeclared().size()).append(")</h2>\n");
+            sb.append("<table>\n<thead>\n<tr><th>Artifact</th><th>Current</th><th>Scope</th><th>Size</th><th>Repo Health</th><th>Available Versions</th><th>Latest</th><th>Recommendation</th></tr>\n</thead>\n<tbody>\n");
+            for (AnalyzedDependency d : out.getRawResults().getUndeclared()) {
+                String ga = (d.getGroupId()==null?"":escapeHtml(d.getGroupId()))+":"+(d.getArtifactId()==null?"":escapeHtml(d.getArtifactId()));
+                String currentVersion = d.getVersion()==null?"":escapeHtml(d.getVersion());
+                String size = (d.getMetadata()!=null && d.getMetadata().getSizeKB()!=null)?(String.format("%.0f KB", d.getMetadata().getSizeKB())):"";
+
+                // Repository health badge
+                String healthBadge = "";
+                if (d.getRepositoryHealth() != null) {
+                    RepositoryHealth health = d.getRepositoryHealth();
+                    switch (health.getLevel()) {
+                        case HEALTHY:
+                            healthBadge = "<span class='badge ok' title='" +
+                                escapeHtml(health.getPositives() != null ? String.join(", ", health.getPositives()) : "Healthy") +
+                                "'>✓ HEALTHY</span>";
+                            break;
+                        case WARNING:
+                            healthBadge = "<span class='badge warn' title='" +
+                                escapeHtml(health.getConcerns() != null ? String.join(", ", health.getConcerns()) : "Some concerns") +
+                                "'>⚠ WARNING</span>";
+                            break;
+                        case DANGER:
+                            healthBadge = "<span class='badge error' title='" +
+                                escapeHtml(health.getConcerns() != null ? String.join(", ", health.getConcerns()) : "Serious concerns") +
+                                "'>⛔ DANGER</span>";
+                            break;
+                        case UNKNOWN:
+                            healthBadge = "<span class='badge' style='background:#e0e0e0;color:#666;'>? UNKNOWN</span>";
+                            break;
+                    }
+                }
+
+                // Available versions - display as list
+                String availableVersions = "";
+                if (d.getAvailableVersions() != null && !d.getAvailableVersions().isEmpty()) {
+                    StringBuilder versionList = new StringBuilder();
+                    for (int i = 0; i < d.getAvailableVersions().size(); i++) {
+                        if (i > 0) versionList.append("<br>");
+                        versionList.append("<span style='font-size:0.85em;color:#667eea;'>")
+                                  .append(escapeHtml(d.getAvailableVersions().get(i)))
+                                  .append("</span>");
+                    }
+                    availableVersions = versionList.toString();
+                } else {
+                    availableVersions = "<span style='font-size:0.85em;color:#999;'>-</span>";
+                }
+
+                // Latest version from repository health
+                String latestVersion = "";
+                if (d.getRepositoryHealth() != null && d.getRepositoryHealth().getLatestVersion() != null) {
+                    latestVersion = "<span style='font-size:0.9em;font-weight:bold;color:#764ba2;'>📦 " +
+                        escapeHtml(d.getRepositoryHealth().getLatestVersion()) + "</span>";
+                } else {
+                    latestVersion = "<span style='font-size:0.85em;color:#999;'>-</span>";
+                }
+
+                sb.append("<tr>\n<td><strong>").append(ga).append("</strong></td>\n")
+                  .append("<td>").append(currentVersion).append("</td>\n")
+                  .append("<td>").append(d.getScope()==null?"":escapeHtml(d.getScope())).append("</td>\n")
+                  .append("<td>").append(size).append("</td>\n")
+                  .append("<td>").append(healthBadge).append("</td>\n")
+                  .append("<td>").append(availableVersions).append("</td>\n")
+                  .append("<td>").append(latestVersion).append("</td>\n")
+                  .append("<td>Add to pom.xml</td>\n</tr>\n");
+            }
+            sb.append("</tbody>\n</table>\n");
         }
 
         // Conflicts table
         if (out.getVersionConflicts() != null && !out.getVersionConflicts().isEmpty()) {
-            sb.append("<h3>Version Conflicts ("+out.getVersionConflicts().size()+")</h3>");
-            sb.append("<table><thead><tr><th>Artifact</th><th>Selected</th><th>Versions</th><th>Risk</th></tr></thead><tbody>");
+            sb.append("<h2>⚠️ Version Conflicts (").append(out.getVersionConflicts().size()).append(")</h2>\n");
+            sb.append("<table>\n<thead>\n<tr><th>Artifact</th><th>Selected</th><th>Versions</th><th>Risk</th></tr>\n</thead>\n<tbody>\n");
             for (io.github.tourem.maven.descriptor.model.analysis.VersionConflict vc : out.getVersionConflicts()) {
-                String ga = vc.getGroupId()+":"+vc.getArtifactId();
+                String ga = escapeHtml(vc.getGroupId())+":"+escapeHtml(vc.getArtifactId());
                 String risk = vc.getRiskLevel()==io.github.tourem.maven.descriptor.model.analysis.VersionConflict.RiskLevel.HIGH?"<span class='badge riskH'>HIGH</span>"
                         : (vc.getRiskLevel()==io.github.tourem.maven.descriptor.model.analysis.VersionConflict.RiskLevel.MEDIUM?"<span class='badge riskM'>MEDIUM</span>":"<span class='badge ok'>LOW</span>");
-                sb.append("<tr><td><strong>").append(ga).append("</strong></td>")
-                  .append("<td>").append(vc.getSelectedVersion()==null?"":vc.getSelectedVersion()).append("</td>")
-                  .append("<td>").append(String.join(", ", vc.getVersions())).append("</td>")
-                  .append("<td>").append(risk).append("</td></tr>");
+                sb.append("<tr>\n<td><strong>").append(ga).append("</strong></td>\n")
+                  .append("<td>").append(vc.getSelectedVersion()==null?"":escapeHtml(vc.getSelectedVersion())).append("</td>\n")
+                  .append("<td>").append(escapeHtml(String.join(", ", vc.getVersions()))).append("</td>\n")
+                  .append("<td>").append(risk).append("</td>\n</tr>\n");
             }
-            sb.append("</tbody></table>");
+            sb.append("</tbody>\n</table>\n");
         }
 
         // Recommendations quick list
         if (out.getRecommendations() != null && !out.getRecommendations().isEmpty()) {
-            sb.append("<h3>Recommendations ("+out.getRecommendations().size()+")</h3><ul>");
+            sb.append("<h2>💡 Recommendations (").append(out.getRecommendations().size()).append(")</h2>\n<ul style='line-height:1.8;'>\n");
             for (io.github.tourem.maven.descriptor.model.analysis.Recommendation r : out.getRecommendations()) {
-                sb.append("<li>").append(r.getType()).append(": ")
-                  .append(r.getGroupId()).append(":").append(r.getArtifactId())
-                  .append(r.getVersion()==null?"":" ("+r.getVersion()+")")
-                  .append("</li>");
+                sb.append("<li>").append(r.getType() != null ? escapeHtml(r.getType().toString()) : "").append(": ")
+                  .append(escapeHtml(r.getGroupId())).append(":").append(escapeHtml(r.getArtifactId()))
+                  .append(r.getVersion()==null?"":" ("+escapeHtml(r.getVersion())+")")
+                  .append("</li>\n");
             }
-            sb.append("</ul>");
+            sb.append("</ul>\n");
         }
 
-        sb.append("</div></body></html>");
+        // Maven Plugins section
+        if (out.getPlugins() != null && out.getPlugins().getSummary() != null) {
+            var pluginSummary = out.getPlugins().getSummary();
+            sb.append("<h2>🔌 Maven Plugins</h2>\n");
+            sb.append("<div class='cards'>\n");
+            sb.append("<div class='card'><div class='label'>Total Plugins</div><div class='value'>")
+              .append(pluginSummary.getTotal() != null ? pluginSummary.getTotal() : 0).append("</div></div>\n");
+            sb.append("<div class='card'><div class='label'>With Configuration</div><div class='value'>")
+              .append(pluginSummary.getWithConfiguration() != null ? pluginSummary.getWithConfiguration() : 0).append("</div></div>\n");
+            sb.append("<div class='card'><div class='label'>From Management</div><div class='value'>")
+              .append(pluginSummary.getFromManagement() != null ? pluginSummary.getFromManagement() : 0).append("</div></div>\n");
+            sb.append("<div class='card'><div class='label'>Outdated</div><div class='value'>")
+              .append(pluginSummary.getOutdated() != null ? pluginSummary.getOutdated() : 0).append("</div></div>\n");
+            sb.append("</div>\n");
+
+            // Plugin list table
+            if (out.getPlugins().getList() != null && !out.getPlugins().getList().isEmpty()) {
+                sb.append("<h3>Build Plugins (").append(out.getPlugins().getList().size()).append(")</h3>\n");
+                sb.append("<table>\n<thead>\n<tr><th>Plugin</th><th>Version</th><th>Phase</th><th>Goals</th><th>Status</th></tr>\n</thead>\n<tbody>\n");
+                for (io.github.tourem.maven.descriptor.model.PluginDetail plugin : out.getPlugins().getList()) {
+                    String ga = (plugin.getGroupId() == null ? "" : escapeHtml(plugin.getGroupId())) + ":" + escapeHtml(plugin.getArtifactId());
+                    String version = plugin.getVersion() != null ? escapeHtml(plugin.getVersion()) : "inherited";
+                    String phase = plugin.getPhase() != null ? escapeHtml(plugin.getPhase()) : "-";
+                    String goals = plugin.getGoals() != null ? escapeHtml(String.join(", ", plugin.getGoals())) : "-";
+
+                    String statusBadge = "";
+                    if (plugin.getOutdated() != null && plugin.getOutdated().getLatest() != null) {
+                        statusBadge = "<span class='badge warn' title='Update available: " + escapeHtml(plugin.getOutdated().getLatest()) + "'>⚠ OUTDATED</span>";
+                    } else {
+                        statusBadge = "<span class='badge ok'>✓ UP-TO-DATE</span>";
+                    }
+
+                    sb.append("<tr>\n<td><strong>").append(ga).append("</strong></td>\n")
+                      .append("<td>").append(version).append("</td>\n")
+                      .append("<td>").append(phase).append("</td>\n")
+                      .append("<td>").append(goals).append("</td>\n")
+                      .append("<td>").append(statusBadge).append("</td>\n</tr>\n");
+                }
+                sb.append("</tbody>\n</table>\n");
+            }
+        }
+
+        // Close content div
+        sb.append("</div>\n");
+
+        // Close container div
+        sb.append("</div>\n");
+
+        // JavaScript for theme toggle
+        sb.append("<script>\n");
+        sb.append("function toggleTheme() {\n");
+        sb.append("  const body = document.body;\n");
+        sb.append("  const themeIcon = document.querySelector('.theme-icon');\n");
+        sb.append("  body.classList.toggle('dark-mode');\n");
+        sb.append("  if (body.classList.contains('dark-mode')) {\n");
+        sb.append("    themeIcon.textContent = '☀️';\n");
+        sb.append("    localStorage.setItem('theme', 'dark');\n");
+        sb.append("  } else {\n");
+        sb.append("    themeIcon.textContent = '🌙';\n");
+        sb.append("    localStorage.setItem('theme', 'light');\n");
+        sb.append("  }\n");
+        sb.append("}\n");
+        sb.append("document.addEventListener('DOMContentLoaded', function() {\n");
+        sb.append("  const savedTheme = localStorage.getItem('theme');\n");
+        sb.append("  const themeIcon = document.querySelector('.theme-icon');\n");
+        sb.append("  if (savedTheme === 'dark') {\n");
+        sb.append("    document.body.classList.add('dark-mode');\n");
+        sb.append("    themeIcon.textContent = '☀️';\n");
+        sb.append("  }\n");
+        sb.append("});\n");
+        sb.append("</script>\n");
+
+        sb.append("</body>\n</html>");
         Files.writeString(file.toPath(), sb.toString());
     }
 
@@ -774,6 +1258,163 @@ public class AnalyzeDependenciesMojo extends AbstractMojo {
     private String getOutputPath() {
         File dir = analysisOutputDir != null ? analysisOutputDir : new File(project.getBuild().getDirectory());
         return new File(dir, analysisOutputFile).getAbsolutePath();
+    }
+
+    private io.github.tourem.maven.descriptor.model.PluginInfo collectPlugins() {
+        try {
+            // Parse the POM file
+            File pomFile = project.getFile();
+            if (pomFile == null || !pomFile.exists()) {
+                return null;
+            }
+
+            org.apache.maven.model.io.xpp3.MavenXpp3Reader reader = new org.apache.maven.model.io.xpp3.MavenXpp3Reader();
+            org.apache.maven.model.Model model;
+            try (java.io.FileReader fileReader = new java.io.FileReader(pomFile)) {
+                model = reader.read(fileReader);
+            }
+
+            // Use PluginCollector to collect plugin information
+            io.github.tourem.maven.descriptor.service.PluginCollector pluginCollector =
+                new io.github.tourem.maven.descriptor.service.PluginCollector();
+
+            io.github.tourem.maven.descriptor.model.PluginOptions options =
+                io.github.tourem.maven.descriptor.model.PluginOptions.builder()
+                    .include(true)
+                    .includePluginManagement(true)
+                    .includePluginConfiguration(true)
+                    .checkPluginUpdates(true)
+                    .build();
+
+            return pluginCollector.collect(model, pomFile.toPath().getParent(), options);
+        } catch (Exception e) {
+            getLog().debug("Failed to collect plugin information: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Collect dependency tree information.
+     */
+    private io.github.tourem.maven.descriptor.model.DependencyTreeInfo collectDependencyTree() {
+        try {
+            File pomFile = project.getFile();
+            if (pomFile == null || !pomFile.exists()) {
+                return null;
+            }
+
+            org.apache.maven.model.io.xpp3.MavenXpp3Reader reader = new org.apache.maven.model.io.xpp3.MavenXpp3Reader();
+            org.apache.maven.model.Model model;
+            try (java.io.FileReader fileReader = new java.io.FileReader(pomFile)) {
+                model = reader.read(fileReader);
+            }
+
+            io.github.tourem.maven.descriptor.service.DependencyTreeCollector collector =
+                new io.github.tourem.maven.descriptor.service.DependencyTreeCollector();
+
+            // Parse format
+            io.github.tourem.maven.descriptor.model.DependencyTreeFormat format;
+            if ("both".equalsIgnoreCase(dependencyTreeFormat)) {
+                format = io.github.tourem.maven.descriptor.model.DependencyTreeFormat.BOTH;
+            } else if ("flat".equalsIgnoreCase(dependencyTreeFormat)) {
+                format = io.github.tourem.maven.descriptor.model.DependencyTreeFormat.FLAT;
+            } else {
+                format = io.github.tourem.maven.descriptor.model.DependencyTreeFormat.TREE;
+            }
+
+            io.github.tourem.maven.descriptor.model.DependencyTreeOptions.DependencyTreeOptionsBuilder optionsBuilder =
+                io.github.tourem.maven.descriptor.model.DependencyTreeOptions.builder()
+                    .include(true)
+                    .depth(dependencyTreeDepth)
+                    .format(format);
+
+            // Add scopes if specified
+            if (dependencyTreeScope != null && !dependencyTreeScope.isBlank()) {
+                java.util.Set<String> scopes = new java.util.HashSet<>();
+                for (String scope : dependencyTreeScope.split(",")) {
+                    scopes.add(scope.trim());
+                }
+                optionsBuilder.scopes(scopes);
+            }
+
+            io.github.tourem.maven.descriptor.model.DependencyTreeOptions options = optionsBuilder.build();
+
+            return collector.collect(model, pomFile.toPath().getParent(), options);
+        } catch (Exception e) {
+            getLog().debug("Failed to collect dependency tree: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Write outputs based on exportFormat parameter.
+     */
+    private void writeOutputs(DependencyAnalysisResult out) throws IOException {
+        String[] formats = exportFormat.split(",");
+        for (String format : formats) {
+            format = format.trim().toLowerCase();
+            switch (format) {
+                case "json":
+                    writeJson(out);
+                    break;
+                case "yaml":
+                case "yml":
+                    writeYaml(out);
+                    break;
+                case "both":
+                    writeJson(out);
+                    writeYaml(out);
+                    break;
+                default:
+                    getLog().warn("Unknown export format: " + format + ". Using JSON.");
+                    writeJson(out);
+            }
+        }
+    }
+
+    /**
+     * Write YAML output.
+     */
+    private void writeYaml(DependencyAnalysisResult out) throws IOException {
+        File dir = analysisOutputDir != null ? analysisOutputDir : new File(project.getBuild().getDirectory());
+        String yamlName = analysisOutputFile != null && analysisOutputFile.endsWith(".json")
+                ? analysisOutputFile.replace(".json", ".yaml")
+                : (analysisOutputFile == null || analysisOutputFile.isBlank() ? "dependency-analysis.yaml" : analysisOutputFile + ".yaml");
+        File yamlFile = new File(dir, yamlName);
+
+        org.yaml.snakeyaml.DumperOptions options = new org.yaml.snakeyaml.DumperOptions();
+        options.setDefaultFlowStyle(org.yaml.snakeyaml.DumperOptions.FlowStyle.BLOCK);
+        options.setPrettyFlow(true);
+        org.yaml.snakeyaml.Yaml yaml = new org.yaml.snakeyaml.Yaml(options);
+
+        try (java.io.OutputStreamWriter writer = new java.io.OutputStreamWriter(
+                new java.io.FileOutputStream(yamlFile), java.nio.charset.StandardCharsets.UTF_8)) {
+            yaml.dump(convertToMap(out), writer);
+        }
+        getLog().info("Dependency analysis YAML generated: " + yamlFile.getAbsolutePath());
+    }
+
+    /**
+     * Convert DependencyAnalysisResult to Map for YAML serialization.
+     */
+    private java.util.Map<String, Object> convertToMap(DependencyAnalysisResult out) throws com.fasterxml.jackson.core.JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        String json = mapper.writeValueAsString(out);
+        return mapper.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, Object>>() {});
+    }
+
+    /**
+     * Escape HTML special characters to prevent XSS and rendering issues.
+     */
+    private String escapeHtml(String text) {
+        if (text == null) return "";
+        return text.replace("&", "&amp;")
+                   .replace("<", "&lt;")
+                   .replace(">", "&gt;")
+                   .replace("\"", "&quot;")
+                   .replace("'", "&#39;");
     }
 }
 

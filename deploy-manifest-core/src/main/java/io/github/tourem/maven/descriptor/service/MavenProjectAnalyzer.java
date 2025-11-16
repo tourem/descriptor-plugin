@@ -420,11 +420,10 @@ public class MavenProjectAnalyzer {
         // Container image detection (maintained plugins only)
         var containerInfo = dockerImageDetector.detect(model, modulePath);
 
-        // Dependency tree collection (optional, typically for executables)
+        // Dependency tree collection (optional, can apply to any deployable module)
         io.github.tourem.maven.descriptor.model.DependencyTreeInfo dependencyTreeInfo = null;
         try {
-            boolean shouldCollect = dependencyTreeOptions != null && dependencyTreeOptions.isInclude()
-                    && ((executableInfo != null && executableInfo.isExecutable()) || isSpringBoot);
+            boolean shouldCollect = dependencyTreeOptions != null && dependencyTreeOptions.isInclude();
             if (shouldCollect) {
                 dependencyTreeInfo = dependencyTreeCollector.collect(model, modulePath, dependencyTreeOptions);
             }
@@ -441,6 +440,29 @@ public class MavenProjectAnalyzer {
             }
         } catch (Exception e) {
             log.debug("License collection failed for {}:{} - {}", groupId, artifactId, e.getMessage());
+        }
+
+        // Property collection (optional, can apply to any deployable module)
+        io.github.tourem.maven.descriptor.model.BuildProperties propertyInfo = null;
+        try {
+            boolean collectProperties = propertyOptions != null && propertyOptions.isInclude();
+            if (collectProperties) {
+                var result = propertyCollector.collect(model, modulePath, propertyOptions);
+                propertyInfo = result.properties();
+            }
+        } catch (Exception e) {
+            log.debug("Property collection failed for {}:{} - {}", groupId, artifactId, e.getMessage());
+        }
+
+        // Plugin collection (optional, can apply to any deployable module)
+        io.github.tourem.maven.descriptor.model.PluginInfo pluginInfo = null;
+        try {
+            boolean collectPlugins = pluginOptions != null && pluginOptions.isInclude();
+            if (collectPlugins) {
+                pluginInfo = pluginCollector.collect(model, modulePath, pluginOptions);
+            }
+        } catch (Exception e) {
+            log.debug("Plugin collection failed for {}:{} - {}", groupId, artifactId, e.getMessage());
         }
 
         DeployableModule.DeployableModuleBuilder builder = DeployableModule.builder()
@@ -462,7 +484,9 @@ public class MavenProjectAnalyzer {
                 .executableInfo(executableInfo)
                 .container(containerInfo)
                 .dependencies(dependencyTreeInfo)
-                .licenses(licenseInfo);
+                .licenses(licenseInfo)
+                .properties(propertyInfo)
+                .plugins(pluginInfo);
 
         // Apply framework detectors via SPI
         for (FrameworkDetector detector : frameworkDetectors) {

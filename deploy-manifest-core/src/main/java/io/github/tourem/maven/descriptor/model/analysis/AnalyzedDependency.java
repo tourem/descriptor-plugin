@@ -29,6 +29,9 @@ public class AnalyzedDependency {
     // Available versions (max 3 newer versions after current version)
     private java.util.List<String> availableVersions;
 
+    // Repository health information (maintenance status, contributors, etc.)
+    private RepositoryHealth repositoryHealth;
+
     @Data
     @Builder
     @NoArgsConstructor

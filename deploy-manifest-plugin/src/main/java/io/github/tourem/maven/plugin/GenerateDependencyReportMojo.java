@@ -31,7 +31,10 @@ import java.util.List;
  * Maven goal to generate a comprehensive dependency and plugin report.
  *
  * @author tourem
+ * @deprecated Use {@code analyze-dependencies} goal instead with {@code -Ddescriptor.includeDependencyTree=true}.
+ *             This goal will be removed in version 3.0.0.
  */
+@Deprecated
 @Mojo(name = "dependency-report", defaultPhase = LifecyclePhase.VERIFY, threadSafe = true)
 public class GenerateDependencyReportMojo extends AbstractMojo {
 

@@ -128,5 +128,15 @@ public class DeployableModule {
      * License information for this module's dependencies (optional, feature-gated).
      */
     private LicenseInfo licenses;
+
+    /**
+     * Maven properties for this module (optional, feature-gated).
+     */
+    private BuildProperties properties;
+
+    /**
+     * Maven plugins information for this module (optional, feature-gated).
+     */
+    private PluginInfo plugins;
 }
 

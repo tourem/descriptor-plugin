@@ -36,6 +36,12 @@ public class DependencyAnalysisResult {
     private java.util.List<VersionConflict> versionConflicts;
     private MultiModuleAnalysis multiModule;
 
+    // Plugin information
+    private io.github.tourem.maven.descriptor.model.PluginInfo plugins;
+
+    // Dependency tree information
+    private io.github.tourem.maven.descriptor.model.DependencyTreeInfo dependencyTree;
+
     @Data
     @Builder
     @NoArgsConstructor

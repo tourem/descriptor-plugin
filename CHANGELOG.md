@@ -12,6 +12,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [2.6.0] - 2025-11-16
+
+### Added
+- **Repository Health Checking**: Comprehensive dependency health assessment
+  - Analyzes Maven Central metadata (last release date, total versions)
+  - GitHub repository integration (contributors, stars, forks, open issues, archived status)
+  - Health levels: HEALTHY (green), WARNING (yellow), DANGER (red), UNKNOWN (gray)
+  - Health assessment criteria:
+    - Last release date: WARNING if >2 years, DANGER if >3 years
+    - Contributors: WARNING if <3, DANGER if <2
+    - GitHub archived status: automatic DANGER
+    - Recent updates (<180 days): positive indicator
+  - Available versions lookup: displays 3 newer versions + latest version per dependency
+  - Repository URL extraction from POM SCM section
+  - Automatic GitHub API integration for enhanced metrics
+  - Health score calculation with repository health impact
+  - HTML dashboard displays:
+    - Repository health badges (color-coded by level)
+    - Available versions in dedicated columns (Current, Available Versions, Latest)
+    - Repository metrics (contributors, stars, last release date)
+    - Health concerns and positive indicators
+- **Maven Plugins Analysis**: Complete plugin tracking and outdated detection
+  - Collects all build plugins with versions and configurations
+  - Detects outdated plugins by checking Maven Central
+  - Displays plugin management information
+  - Integrated into dependency analysis HTML dashboard
+- **Dependency Summary Counts Fix**: Accurate dependency counting
+  - Uses `DependencyGraphBuilder` to build complete dependency graph
+  - Recursive traversal to count all unique dependencies (direct + transitive)
+  - Correct counts in summary: totalDependencies, directDependencies, transitiveDependencies
+  - Fallback mechanism if graph building fails
+
+### Changed
+- **Dependency Analysis HTML**: Unified modern design with descriptor HTML
+  - Dark/light mode toggle with localStorage persistence
+  - Modern gradient design matching descriptor dashboard
+  - Improved summary section with correct dependency counts
+  - Enhanced available versions display with separate columns
+  - Repository health badges integrated into dependency tables
+- **Dependency Tree Collection**: Now available for all deployable modules (not just executables)
+- **Properties Collection**: Fixed type from `PropertyInfo` to `BuildProperties`
+
+### Fixed
+- Summary counts showing zero for totalDependencies and transitiveDependencies
+- Properties not being collected in descriptor generation
+- Plugins not being collected in descriptor generation
+- Dependency tree restricted to executable modules only
+
+### Technical Details
+- New service: `RepositoryHealthChecker` with GitHub API integration
+- Health assessment thresholds:
+  - `DAYS_WARNING_THRESHOLD`: 730 days (2 years)
+  - `DAYS_DANGER_THRESHOLD`: 1095 days (3 years)
+  - `CONTRIBUTORS_WARNING_THRESHOLD`: 3
+  - `CONTRIBUTORS_DANGER_THRESHOLD`: 2
+- New model: `RepositoryHealth` with comprehensive health metrics
+- Enhanced `DependencyVersionLookup` with repository health integration
+- Improved `AnalyzeDependenciesMojo` with accurate dependency counting
+- Updated `MavenProjectAnalyzer` to collect properties, plugins, and dependency tree for all modules
+
+
+
 ## [2.3.0] - 2025-11-13
 
 ### Added
